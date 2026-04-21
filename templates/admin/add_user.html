@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Add Member{% endblock %}
+{% block page_title %}Add Member{% endblock %}
+{% block content %}
+<div class="page-body" style="max-width:560px;">
+  <div class="page-header">
+    <h1 class="page-header-title">👤 Add New Member</h1>
+    <a href="{{ url_for('admin.manage_users') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>
+  </div>
+  <div class="card">
+    <form method="POST">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="uname">Full Name *</label>
+          <input id="uname" type="text" name="name" class="form-control" required placeholder="John Doe">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="urole">Role</label>
+          <select id="urole" name="role" class="form-control">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="uemail">Email *</label>
+        <input id="uemail" type="email" name="email" class="form-control" required placeholder="user@example.com">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="uphone">Phone</label>
+          <input id="uphone" type="tel" name="phone" class="form-control" placeholder="9876543210">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="udept">Department</label>
+          <input id="udept" type="text" name="department" class="form-control" placeholder="e.g. IT Dept">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="upwd">Password *</label>
+        <input id="upwd" type="password" name="password" class="form-control" required placeholder="Min 6 characters">
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-user-plus"></i> Add Member</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

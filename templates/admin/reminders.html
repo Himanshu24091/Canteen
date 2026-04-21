@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Send Reminders{% endblock %}
+{% block page_title %}Reminders{% endblock %}
+{% block content %}
+<div class="page-body">
+  <div class="page-header">
+    <h1 class="page-header-title">🔔 Send Reminders</h1>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+    <!-- Send Form -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Compose Reminder</h3></div>
+      <form method="POST">
+        <div class="form-group">
+          <label class="form-label">Target</label>
+          <select name="target" id="targetSelect" class="form-control" onchange="toggleUserSelect()">
+            <option value="all">All users with pending dues</option>
+            <option value="broadcast">Broadcast to everyone</option>
+            <option value="specific">Specific user</option>
+          </select>
+        </div>
+        <div class="form-group" id="specificUser" style="display:none;">
+          <label class="form-label">Select User</label>
+          <select name="user_id" class="form-control">
+            {% for u in users %}
+            <option value="{{ u.id }}">{{ u.name }} — ₹{{ "%.2f"|format(u.pending) }} pending</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message *</label>
+          <textarea name="message" class="form-control" rows="4" required placeholder="e.g. Dear member, please clear your canteen dues at the earliest..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Send Reminder</button>
+      </form>
+    </div>
+
+    <!-- Users with Dues -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Users with Pending Dues</h3></div>
+      {% if users %}
+      {% for u in users %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:14px;font-weight:600;">{{ u.name }}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">{{ u.email }}</div>
+        </div>
+        <div style="font-weight:700;color:var(--red);">₹{{ "%.2f"|format(u.pending) }}</div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="empty-state" style="padding:30px 0;">
+        <div class="empty-state-icon">✅</div>
+        <p>All dues are cleared!</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleUserSelect() {
+  document.getElementById('specificUser').style.display =
+    document.getElementById('targetSelect').value === 'specific' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

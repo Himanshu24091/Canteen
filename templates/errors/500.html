@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}500 - Server Error{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
+  <div style="text-align:center;">
+    <div style="font-size:80px;margin-bottom:16px;">⚠️</div>
+    <h1 style="font-size:72px;font-weight:900;color:var(--red);">500</h1>
+    <p style="font-size:20px;margin-bottom:8px;">Something went wrong in the kitchen!</p>
+    <p style="color:var(--text-secondary);margin-bottom:24px;">Our chefs are working on it. Please try again.</p>
+    <a href="/" class="btn btn-primary">🏠 Go Home</a>
+  </div>
+</div>
+{% endblock %}

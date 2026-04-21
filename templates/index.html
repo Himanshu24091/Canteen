@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Welcome{% endblock %}
+{% block content %}
+<div class="hero">
+  <div class="hero-content">
+    <div class="hero-emoji">🍽️</div>
+    <h1 class="hero-title">SmartCanteen</h1>
+    <p class="hero-sub">Order fresh food, track expenses, and manage your canteen — all in one place.</p>
+    <div class="hero-btns">
+      <a href="{{ url_for('auth.login') }}" class="btn-hero-primary">Get Started</a>
+      <a href="{{ url_for('auth.register') }}" class="btn-hero-secondary">Create Account</a>
+    </div>
+    <div class="hero-features">
+      <div class="hero-feature"><i class="fas fa-bolt"></i> Fast Ordering</div>
+      <div class="hero-feature"><i class="fas fa-shield-alt"></i> Secure Payments</div>
+      <div class="hero-feature"><i class="fas fa-chart-bar"></i> Expense Tracking</div>
+      <div class="hero-feature"><i class="fas fa-bell"></i> Smart Reminders</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

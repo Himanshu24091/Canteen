@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Profile{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+{% block content %}
+<div class="page-body" style="max-width:600px;">
+  <div class="page-header">
+    <h1 class="page-header-title">👤 My Profile</h1>
+  </div>
+
+  {% if pending > 0 %}
+  <div class="alert alert-warning" style="margin-bottom:20px;">
+    <i class="fas fa-rupee-sign"></i> Pending dues: <strong>₹{{ "%.2f"|format(pending) }}</strong>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:24px;">
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;flex-shrink:0;">
+        {{ user.name[0].upper() }}
+      </div>
+      <div>
+        <div style="font-size:20px;font-weight:800;">{{ user.name }}</div>
+        <div style="font-size:14px;color:var(--text-secondary);">{{ user.email }}</div>
+        <span class="badge badge-{{ user.role }}" style="margin-top:4px;">{{ user.role.title() }}</span>
+      </div>
+    </div>
+
+    <form method="POST">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="pname">Full Name</label>
+          <input id="pname" type="text" name="name" class="form-control" value="{{ user.name }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pphone">Phone</label>
+          <input id="pphone" type="tel" name="phone" class="form-control" value="{{ user.phone or '' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pdept">Department / Class</label>
+        <input id="pdept" type="text" name="department" class="form-control" value="{{ user.department or '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Member Since</label>
+        <input type="text" class="form-control" value="{{ user.created_at[:10] }}" disabled>
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

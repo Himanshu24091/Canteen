@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div class="page-body">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header-title">📊 Admin Dashboard</h1>
+      <p class="page-header-sub">Overview of canteen operations</p>
+    </div>
+    <a href="{{ url_for('admin.export_orders') }}" class="btn btn-secondary"><i class="fas fa-download"></i> Export CSV</a>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+      <div><div class="stat-value">{{ total_users }}</div><div class="stat-label">Total Users</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="fas fa-receipt"></i></div>
+      <div><div class="stat-value">{{ total_orders_today }}</div><div class="stat-label">Orders Today</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="fas fa-rupee-sign"></i></div>
+      <div><div class="stat-value">₹{{ "%.0f"|format(revenue_today) }}</div><div class="stat-label">Revenue Today</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon red"><i class="fas fa-clock"></i></div>
+      <div><div class="stat-value">₹{{ "%.0f"|format(total_pending) }}</div><div class="stat-label">Total Pending</div></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <!-- Recent Orders -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Recent Orders</h3>
+        <a href="{{ url_for('admin.all_orders') }}" class="btn btn-secondary btn-sm">View All</a>
+      </div>
+      <div class="table-wrapper" style="border:none;">
+        <table>
+          <thead><tr><th>User</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for o in recent_orders %}
+            <tr>
+              <td><strong>{{ o.user_name }}</strong><br><span style="font-size:11px;color:var(--text-muted);">#{{ o.id }}</span></td>
+              <td style="color:var(--accent);font-weight:700;">₹{{ "%.2f"|format(o.total_amount) }}</td>
+              <td><span class="badge badge-{{ o.payment_status }}">{{ o.payment_status }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" style="text-align:center;color:var(--text-muted);">No orders yet</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Popular Items -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">🔥 Popular Items (30 days)</h3>
+      </div>
+      {% for item in popular_items %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:14px;font-weight:600;">{{ item.item_name }}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">{{ item.total_qty }} sold</div>
+        </div>
+        <div style="font-weight:700;color:var(--green);">₹{{ "%.0f"|format(item.revenue) }}</div>
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:30px 0;"><p>No data yet</p></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+    <a href="{{ url_for('admin.add_item') }}" class="card card-sm" style="text-align:center;">
+      <div style="font-size:28px;margin-bottom:8px;">➕</div><div style="font-size:13px;font-weight:600;">Add Menu Item</div>
+    </a>
+    <a href="{{ url_for('admin.add_user') }}" class="card card-sm" style="text-align:center;">
+      <div style="font-size:28px;margin-bottom:8px;">👤</div><div style="font-size:13px;font-weight:600;">Add Member</div>
+    </a>
+    <a href="{{ url_for('admin.send_reminders') }}" class="card card-sm" style="text-align:center;">
+      <div style="font-size:28px;margin-bottom:8px;">🔔</div><div style="font-size:13px;font-weight:600;">Send Reminder</div>
+    </a>
+    <a href="{{ url_for('admin.reports') }}" class="card card-sm" style="text-align:center;">
+      <div style="font-size:28px;margin-bottom:8px;">📈</div><div style="font-size:13px;font-weight:600;">View Reports</div>
+    </a>
+  </div>
+</div>
+{% endblock %}

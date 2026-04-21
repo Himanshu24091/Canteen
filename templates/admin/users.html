@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Manage Users{% endblock %}
+{% block page_title %}User Management{% endblock %}
+{% block content %}
+<div class="page-body">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header-title">👥 Users</h1>
+      <p class="page-header-sub">{{ users|length }} registered members</p>
+    </div>
+    <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary"><i class="fas fa-user-plus"></i> Add User</a>
+  </div>
+
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Email</th><th>Department</th><th>Role</th><th>Status</th><th>Joined</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">
+                {{ u.name[0].upper() }}
+              </div>
+              <strong>{{ u.name }}</strong>
+            </div>
+          </td>
+          <td style="font-size:13px;color:var(--text-secondary);">{{ u.email }}</td>
+          <td style="font-size:13px;">{{ u.department or '—' }}</td>
+          <td><span class="badge badge-{{ u.role }}">{{ u.role.title() }}</span></td>
+          <td><span class="badge {% if u.is_active %}badge-completed{% else %}badge-cancelled{% endif %}">{{ 'Active' if u.is_active else 'Blocked' }}</span></td>
+          <td style="font-size:12px;color:var(--text-muted);">{{ u.created_at[:10] }}</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <form method="POST" action="{{ url_for('admin.toggle_user', user_id=u.id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-warning btn-sm btn-icon" title="{{ 'Block' if u.is_active else 'Unblock' }}">
+                  <i class="fas fa-{{ 'ban' if u.is_active else 'check' }}"></i>
+                </button>
+              </form>
+              {% if u.id != session.user_id %}
+              <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}" style="display:inline;" onsubmit="return confirm('Remove this user?')">
+                <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Delete"><i class="fas fa-trash"></i></button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

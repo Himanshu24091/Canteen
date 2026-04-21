@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}Menu{% endblock %}
+{% block page_title %}Browse Menu{% endblock %}
+{% block content %}
+<div class="page-body">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header-title">🍔 Today's Menu</h1>
+      <p class="page-header-sub">{{ items|length }} items available</p>
+    </div>
+    <a href="{{ url_for('user.cart') }}" class="btn btn-primary">
+      <i class="fas fa-shopping-cart"></i> View Cart
+      <span id="cartBadgeMenu" style="display:none;background:rgba(255,255,255,0.3);padding:0 6px;border-radius:99px;font-size:11px;"></span>
+    </a>
+  </div>
+
+  <!-- Search + Filter -->
+  <form method="GET" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+    <div class="search-bar" style="flex:1;min-width:200px;">
+      <i class="fas fa-search"></i>
+      <input type="text" name="q" class="form-control" placeholder="Search food items..." value="{{ search }}">
+    </div>
+    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+    {% if search or selected_cat %}
+    <a href="{{ url_for('user.menu') }}" class="btn btn-secondary"><i class="fas fa-times"></i> Clear</a>
+    {% endif %}
+  </form>
+
+  <!-- Category Filters -->
+  <div class="cat-pills">
+    <a href="{{ url_for('user.menu') }}{% if search %}?q={{ search }}{% endif %}"
+       class="cat-pill {% if not selected_cat %}active{% endif %}">All</a>
+    {% for cat in categories %}
+    <a href="?category={{ cat.category }}{% if search %}&q={{ search }}{% endif %}"
+       class="cat-pill {% if selected_cat == cat.category %}active{% endif %}">{{ cat.category }}</a>
+    {% endfor %}
+  </div>
+
+  {% if items %}
+  <div class="menu-grid">
+    {% set emojis = {'Meals':'🍛','Breakfast':'🥞','Snacks':'🥪','Beverages':'☕','Desserts':'🍨','General':'🍽️'} %}
+    {% for item in items %}
+    {# Use data attributes to avoid Jinja/JS quote conflicts #}
+    <div class="menu-card"
+         data-id="{{ item.id }}"
+         data-name="{{ item.name | e }}"
+         data-price="{{ item.price }}"
+         onclick="addToCartMenu(this)">
+      <div class="menu-card-img">{{ emojis.get(item.category, '🍽️') }}</div>
+      <div class="menu-card-body">
+        <span class="menu-cat-tag">{{ item.category }}</span>
+        <div class="menu-card-name">{{ item.name }}</div>
+        <div class="menu-card-desc">{{ item.description or 'Fresh and delicious!' }}</div>
+        <div class="menu-card-footer">
+          <span class="menu-card-price">₹{{ "%.0f"|format(item.price) }}</span>
+          <button class="btn btn-primary btn-sm"
+                  onclick="event.stopPropagation(); addToCartMenu(this.closest('.menu-card'))">
+            <i class="fas fa-plus"></i> Add
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon">🔍</div>
+    <h3>No items found</h3>
+    <p>Try a different search or category.</p>
+    <a href="{{ url_for('user.menu') }}" class="btn btn-primary">View All Items</a>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function addToCartMenu(card) {
+  const id    = parseInt(card.dataset.id);
+  const name  = card.dataset.name;
+  const price = parseFloat(card.dataset.price);
+  addToCart(id, name, price);
+  const badge = document.getElementById('cartBadgeMenu');
+  if (badge) {
+    const count = getCart().reduce(function(s, i) { return s + i.qty; }, 0);
+    badge.textContent = count;
+    badge.style.display = 'inline';
+  }
+}
+</script>
+{% endblock %}

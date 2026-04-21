@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit Item' if item else 'Add Item' }}{% endblock %}
+{% block page_title %}{{ 'Edit Item' if item else 'Add Item' }}{% endblock %}
+{% block content %}
+<div class="page-body" style="max-width:600px;">
+  <div class="page-header">
+    <h1 class="page-header-title">{{ '✏️ Edit Item' if item else '➕ Add Menu Item' }}</h1>
+    <a href="{{ url_for('admin.manage_menu') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>
+  </div>
+
+  <div class="card">
+    <form method="POST">
+      <div class="form-group">
+        <label class="form-label" for="iname">Item Name *</label>
+        <input id="iname" type="text" name="name" class="form-control" value="{{ item.name if item else '' }}" required placeholder="e.g. Veg Thali">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="idesc">Description</label>
+        <textarea id="idesc" name="description" class="form-control" rows="2" placeholder="Short description...">{{ item.description if item else '' }}</textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="iprice">Price (₹) *</label>
+          <input id="iprice" type="number" name="price" class="form-control" min="0" step="0.5" value="{{ item.price if item else '' }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="icat">Category</label>
+          <select id="icat" name="category" class="form-control">
+            {% for cat in ['Meals','Breakfast','Snacks','Beverages','Desserts','General'] %}
+            <option value="{{ cat }}" {% if item and item.category==cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-check">
+          <input type="checkbox" id="iavail" name="is_available" {% if not item or item.is_available %}checked{% endif %}>
+          <label for="iavail" class="form-label" style="margin:0;">Available for ordering</label>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> {{ 'Update Item' if item else 'Add Item' }}</button>
+        <a href="{{ url_for('admin.manage_menu') }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

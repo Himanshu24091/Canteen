@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Notifications{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block content %}
+<div class="page-body">
+  <div class="page-header">
+    <h1 class="page-header-title">🔔 Notifications</h1>
+  </div>
+  {% if notifications %}
+    {% for n in notifications %}
+    <div class="notif-item {% if not n.is_read %}unread{% endif %}">
+      <div class="notif-icon notif-{{ n.type }}-type">
+        <i class="fas fa-{% if n.type == 'success' %}check{% elif n.type == 'warning' %}exclamation{% else %}bell{% endif %}"></i>
+      </div>
+      <div class="notif-body">
+        <div class="notif-title">{{ n.title }}</div>
+        <div class="notif-msg">{{ n.message }}</div>
+        <div class="notif-time"><i class="fas fa-clock"></i> {{ n.created_at[:16] }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon">🔔</div>
+    <h3>All caught up!</h3>
+    <p>No notifications yet.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

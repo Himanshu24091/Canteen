@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block title %}My Cart{% endblock %}
+{% block page_title %}My Cart{% endblock %}
+{% block content %}
+<div class="page-body">
+  <div class="page-header">
+    <div>
+      <h1 class="page-header-title">🛒 My Cart</h1>
+      <p class="page-header-sub">Review your items before placing order</p>
+    </div>
+    <a href="{{ url_for('user.menu') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Continue Shopping</a>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start;">
+    <!-- Cart Items -->
+    <div class="card" id="cartItemsContainer">
+      <div class="card-header">
+        <h3 class="card-title">Items <span id="cartCount" style="color:var(--text-secondary);font-size:14px;font-weight:500;"></span></h3>
+        <button class="btn btn-danger btn-sm" onclick="clearAllCart()"><i class="fas fa-trash"></i> Clear All</button>
+      </div>
+      <div id="cartItems"></div>
+      <div id="emptyCart" style="display:none;" class="empty-state">
+        <div class="empty-state-icon">🛒</div>
+        <h3>Your cart is empty</h3>
+        <p>Add some delicious items from the menu!</p>
+        <a href="{{ url_for('user.menu') }}" class="btn btn-primary">Browse Menu</a>
+      </div>
+    </div>
+
+    <!-- Order Summary -->
+    <div>
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Order Summary</h3></div>
+        <div class="order-summary">
+          <div class="summary-row"><span>Subtotal</span><span id="summSubtotal">₹0.00</span></div>
+          <div class="summary-row"><span>Tax (0%)</span><span>₹0.00</span></div>
+          <div class="summary-row total"><span>Total</span><span id="summTotal">₹0.00</span></div>
+        </div>
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label">Special Notes (optional)</label>
+          <textarea id="orderNotes" class="form-control" rows="2" placeholder="e.g. No onion, extra spicy..."></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;margin-top:8px;" onclick="placeOrder()" id="placeOrderBtn">
+          <i class="fas fa-check-circle"></i> Place Order
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Order Success Modal -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal">
+    <div style="text-align:center;padding:20px 0;">
+      <div style="font-size:56px;margin-bottom:16px;">🎉</div>
+      <h2 style="margin-bottom:8px;">Order Placed!</h2>
+      <p style="color:var(--text-secondary);margin-bottom:8px;">Your order has been placed successfully.</p>
+      <p style="font-size:13px;color:var(--text-muted);" id="orderIdText"></p>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;">
+        <a href="{{ url_for('user.history') }}" class="btn btn-secondary">View Orders</a>
+        <a href="{{ url_for('user.menu') }}" class="btn btn-primary">Order More</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function renderCart() {
+  const cart = getCart();
+  const container = document.getElementById('cartItems');
+  const empty = document.getElementById('emptyCart');
+  const count = document.getElementById('cartCount');
+  const total = cart.reduce((s,i) => s + i.price * i.qty, 0);
+
+  if (cart.length === 0) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('placeOrderBtn').disabled = true;
+    count.textContent = '';
+  } else {
+    empty.style.display = 'none';
+    document.getElementById('placeOrderBtn').disabled = false;
+    count.textContent = `(${cart.reduce((s,i)=>s+i.qty,0)} items)`;
+    container.innerHTML = cart.map(item => `
+      <div class="cart-item">
+        <div class="cart-item-info">
+          <div class="cart-item-name">${item.name}</div>
+          <div class="cart-item-price">₹${item.price.toFixed(2)} each</div>
+        </div>
+        <div class="qty-control">
+          <button class="qty-btn" onclick="changeQty(${item.id}, -1)"><i class="fas fa-minus"></i></button>
+          <span class="qty-value">${item.qty}</span>
+          <button class="qty-btn" onclick="changeQty(${item.id}, 1)"><i class="fas fa-plus"></i></button>
+        </div>
+        <div style="min-width:70px;text-align:right;">
+          <div style="font-weight:700;">₹${(item.price*item.qty).toFixed(2)}</div>
+          <button onclick="removeFromCart(${item.id});renderCart();" style="font-size:11px;color:var(--red);margin-top:2px;">Remove</button>
+        </div>
+      </div>`).join('');
+  }
+  document.getElementById('summSubtotal').textContent = '₹' + total.toFixed(2);
+  document.getElementById('summTotal').textContent = '₹' + total.toFixed(2);
+}
+
+function changeQty(id, delta) { updateQty(id, delta); renderCart(); }
+
+function clearAllCart() {
+  if (confirm('Clear all items from cart?')) {
+    localStorage.removeItem('canteen_cart');
+    updateCartBadges();
+    renderCart();
+  }
+}
+
+async function placeOrder() {
+  const cart = getCart();
+  if (!cart.length) return showToast('Cart is empty!', 'error');
+  const btn = document.getElementById('placeOrderBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Placing...';
+
+  try {
+    const res = await fetch('{{ url_for("user.place_order") }}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ items: cart.map(i=>({id:i.id,qty:i.qty})), notes: document.getElementById('orderNotes').value })
+    });
+    const data = await res.json();
+    if (data.success) {
+      localStorage.removeItem('canteen_cart');
+      updateCartBadges();
+      document.getElementById('orderIdText').textContent = 'Order #' + data.order_id + ' | Total: ₹' + data.total.toFixed(2);
+      document.getElementById('successModal').classList.add('open');
+      renderCart();
+    } else {
+      showToast(data.message || 'Failed to place order', 'error');
+    }
+  } catch(e) {
+    showToast('Network error. Please try again.', 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-check-circle"></i> Place Order';
+}
+
+renderCart();
+</script>
+{% endblock %}
+

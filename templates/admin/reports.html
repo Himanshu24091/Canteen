@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+{% block content %}
+<div class="page-body">
+  <div class="page-header">
+    <h1 class="page-header-title">📈 Reports</h1>
+    <a href="{{ url_for('admin.export_orders') }}" class="btn btn-secondary"><i class="fas fa-download"></i> Export CSV</a>
+  </div>
+
+  <div class="cat-pills" style="margin-bottom:20px;">
+    <a href="?period=day" class="cat-pill {% if period=='day' %}active{% endif %}">Today</a>
+    <a href="?period=week" class="cat-pill {% if period=='week' %}active{% endif %}">This Week</a>
+    <a href="?period=month" class="cat-pill {% if period=='month' %}active{% endif %}">Last 30 Days</a>
+  </div>
+
+  <div class="stats-grid" style="margin-bottom:24px;">
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="fas fa-receipt"></i></div>
+      <div><div class="stat-value">{{ summary.total_orders }}</div><div class="stat-label">Total Orders</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="fas fa-chart-line"></i></div>
+      <div><div class="stat-value">₹{{ "%.0f"|format(summary.total_revenue) }}</div><div class="stat-label">Total Revenue</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+      <div><div class="stat-value">₹{{ "%.0f"|format(summary.collected) }}</div><div class="stat-label">Collected</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon red"><i class="fas fa-clock"></i></div>
+      <div><div class="stat-value">₹{{ "%.0f"|format(summary.pending) }}</div><div class="stat-label">Pending</div></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <!-- Top Users -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">🏆 Top Customers</h3></div>
+      <div class="table-wrapper" style="border:none;">
+        <table>
+          <thead><tr><th>Name</th><th>Orders</th><th>Spent</th></tr></thead>
+          <tbody>
+            {% for u in top_users %}
+            <tr>
+              <td><strong>{{ u.name }}</strong></td>
+              <td>{{ u.order_count }}</td>
+              <td style="color:var(--accent);font-weight:700;">₹{{ "%.0f"|format(u.spent) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" style="text-align:center;color:var(--text-muted);">No data</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Daily Revenue -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">📅 Daily Revenue (30 days)</h3></div>
+      <div style="max-height:320px;overflow-y:auto;">
+        {% for d in daily_revenue %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+          <div style="font-size:13px;">{{ d.day }}</div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:12px;color:var(--text-secondary);">{{ d.orders }} orders</span>
+            <strong style="color:var(--green);">₹{{ "%.0f"|format(d.revenue) }}</strong>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:30px 0;"><p>No data available.</p></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
