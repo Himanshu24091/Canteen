@@ -41,8 +41,6 @@
 /* ── Action button groups inside tables ─────────────────── */
 .action-btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
-/* ── Hide on mobile helper ──────────────────────────────── */
-.hide-mobile { /* applied in JS/mobile breakpoint */ }
 
 /* ── Reports: chart container (overflow-safe) ───────────── */
 .chart-box { position: relative; overflow: hidden; }
