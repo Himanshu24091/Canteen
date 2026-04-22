@@ -1,7 +1,23 @@
 import psycopg2
 import psycopg2.extras
 import os
+import datetime as _dt
 from config import Config
+
+
+def _serialize_row(row):
+    """Convert a RealDictRow to a plain dict with datetime objects as strings."""
+    if row is None:
+        return None
+    result = {}
+    for k, v in row.items():
+        if isinstance(v, (_dt.datetime, _dt.date)):
+            result[k] = str(v)          # '2026-04-22 07:00:00' or '2026-04-22'
+        elif hasattr(v, '__class__') and v.__class__.__name__ == 'Decimal':
+            result[k] = float(v)        # Decimal -> float for templates
+        else:
+            result[k] = v
+    return result
 
 
 class _Cursor:
@@ -24,10 +40,10 @@ class _Cursor:
         return self
 
     def fetchone(self):
-        return self._cur.fetchone()
+        return _serialize_row(self._cur.fetchone())
 
     def fetchall(self):
-        return self._cur.fetchall()
+        return [_serialize_row(r) for r in (self._cur.fetchall() or [])]
 
     @property
     def lastrowid(self):
