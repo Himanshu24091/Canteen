@@ -186,11 +186,29 @@ def delete_user(user_id):
         flash("You can't delete yourself.", 'danger')
         return redirect(url_for('admin.manage_users'))
     db = get_db()
-    db.execute("DELETE FROM users WHERE id = ?", (user_id,))
-    db.commit()
-    db.close()
-    log_event('🗑', 'USER DELETE', f"id:{user_id}", BRED)
-    flash('User removed.', 'info')
+    try:
+        # Must delete child rows first (FK constraints)
+        # 1. order_items that belong to this user's orders
+        db.execute(
+            "DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id = %s)",
+            (user_id,)
+        )
+        # 2. payments referencing this user
+        db.execute("DELETE FROM payments WHERE user_id = %s", (user_id,))
+        # 3. notifications for this user
+        db.execute("DELETE FROM notifications WHERE user_id = %s", (user_id,))
+        # 4. orders by this user
+        db.execute("DELETE FROM orders WHERE user_id = %s", (user_id,))
+        # 5. finally delete the user
+        db.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        db.commit()
+        log_event('🗑', 'USER DELETE', f"id:{user_id} (with all related data)", BRED)
+        flash('User and all related data removed.', 'info')
+    except Exception as e:
+        db.rollback()
+        flash(f'Error deleting user: {e}', 'danger')
+    finally:
+        db.close()
     return redirect(url_for('admin.manage_users'))
 
 # ─── Orders Management ───────────────────────────────────────────────────────
