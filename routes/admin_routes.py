@@ -324,12 +324,13 @@ def reports():
     db = get_db()
     period = request.args.get('period', 'week')
     if period == 'day':
-        date_filter = "date(o.created_at) = CURRENT_DATE"
+        date_filter = "o.created_at::date = CURRENT_DATE"
     elif period == 'month':
         date_filter = "o.created_at >= NOW() - INTERVAL '30 days'"
     else:
         date_filter = "o.created_at >= NOW() - INTERVAL '7 days'"
 
+    # ── Summary cards ──────────────────────────────────────────
     summary = db.execute(
         f"""SELECT COUNT(*) as total_orders, COALESCE(SUM(total_amount),0) as total_revenue,
                COALESCE(SUM(CASE WHEN payment_status='paid' THEN total_amount END),0) as collected,
@@ -337,21 +338,79 @@ def reports():
             FROM orders o WHERE {date_filter}"""
     ).fetchone()
 
+    # ── Top spenders for selected period ──────────────────────
     top_users = db.execute(
-        f"""SELECT u.name, u.email, COUNT(o.id) as order_count, SUM(o.total_amount) as spent
+        f"""SELECT u.name, u.email, COUNT(o.id) as order_count,
+                   COALESCE(SUM(o.total_amount),0) as spent
             FROM orders o JOIN users u ON o.user_id=u.id
-            WHERE {date_filter} GROUP BY u.id ORDER BY spent DESC LIMIT 10"""
+            WHERE {date_filter} GROUP BY u.id, u.name, u.email
+            ORDER BY spent DESC LIMIT 10"""
     ).fetchall()
 
-    daily_revenue = db.execute(
-        """SELECT created_at::date as day, SUM(total_amount) as revenue, COUNT(*) as orders
-           FROM orders WHERE created_at >= NOW() - INTERVAL '30 days'
-           GROUP BY day ORDER BY day"""
-    ).fetchall()
+    # ── Per-user: daily / weekly / monthly totals ─────────────
+    user_spending = db.execute("""
+        SELECT u.id, u.name, u.email,
+          COALESCE(SUM(CASE WHEN o.created_at::date = CURRENT_DATE THEN o.total_amount END), 0)             AS day_spent,
+          COALESCE(SUM(CASE WHEN o.created_at >= NOW() - INTERVAL '7 days'  THEN o.total_amount END), 0)   AS week_spent,
+          COALESCE(SUM(CASE WHEN o.created_at >= NOW() - INTERVAL '30 days' THEN o.total_amount END), 0)   AS month_spent,
+          COUNT(CASE WHEN o.created_at::date = CURRENT_DATE THEN 1 END)                                     AS day_orders,
+          COUNT(CASE WHEN o.created_at >= NOW() - INTERVAL '7 days'  THEN 1 END)                           AS week_orders,
+          COUNT(CASE WHEN o.created_at >= NOW() - INTERVAL '30 days' THEN 1 END)                           AS month_orders
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        WHERE u.role = 'user'
+        GROUP BY u.id, u.name, u.email
+        ORDER BY month_spent DESC
+    """).fetchall()
+
+    # ── Daily revenue chart: last 30 days ────────────────────
+    daily_revenue = db.execute("""
+        SELECT created_at::date as day,
+               COALESCE(SUM(total_amount), 0) as revenue,
+               COUNT(*) as orders
+        FROM orders
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY day ORDER BY day
+    """).fetchall()
+
+    # ── Weekly revenue chart: last 8 weeks ───────────────────
+    weekly_revenue = db.execute("""
+        SELECT DATE_TRUNC('week', created_at)::date AS week_start,
+               COALESCE(SUM(total_amount), 0) AS revenue,
+               COUNT(*) AS orders
+        FROM orders
+        WHERE created_at >= NOW() - INTERVAL '56 days'
+        GROUP BY week_start ORDER BY week_start
+    """).fetchall()
+
+    # ── Chart: top 8 users by monthly spend (bar chart) ──────
+    top_chart_users = db.execute("""
+        SELECT u.name,
+               COALESCE(SUM(CASE WHEN o.created_at >= NOW() - INTERVAL '30 days' THEN o.total_amount END), 0) AS month_spent
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        WHERE u.role = 'user'
+        GROUP BY u.id, u.name
+        ORDER BY month_spent DESC LIMIT 8
+    """).fetchall()
+
+    # Serialise for Jinja → JS
+    rev_labels   = [str(r['day'])        for r in daily_revenue]
+    rev_data     = [float(r['revenue'])  for r in daily_revenue]
+    week_labels  = [str(r['week_start']) for r in weekly_revenue]
+    week_data    = [float(r['revenue'])  for r in weekly_revenue]
+    usr_names    = [u['name']            for u in top_chart_users]
+    usr_data     = [float(u['month_spent']) for u in top_chart_users]
 
     db.close()
-    return render_template('admin/reports.html', summary=summary, top_users=top_users,
-                           daily_revenue=daily_revenue, period=period)
+    return render_template('admin/reports.html',
+                           summary=summary, top_users=top_users,
+                           user_spending=user_spending,
+                           daily_revenue=daily_revenue,
+                           rev_labels=rev_labels, rev_data=rev_data,
+                           week_labels=week_labels, week_data=week_data,
+                           usr_names=usr_names, usr_data=usr_data,
+                           period=period)
 
 @admin_bp.route('/admin/reports/export')
 @admin_required

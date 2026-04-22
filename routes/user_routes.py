@@ -146,12 +146,52 @@ def history():
         (user_id,)
     ).fetchall()
 
+    # ── Period summaries (daily / weekly / monthly totals) ──
+    summary = db.execute("""
+        SELECT
+          COALESCE(SUM(CASE WHEN created_at::date = CURRENT_DATE THEN total_amount END), 0)             AS day_total,
+          COALESCE(SUM(CASE WHEN created_at >= NOW() - INTERVAL '7 days'  THEN total_amount END), 0)   AS week_total,
+          COALESCE(SUM(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN total_amount END), 0)   AS month_total,
+          COUNT(CASE WHEN created_at::date = CURRENT_DATE THEN 1 END)                                   AS day_count,
+          COUNT(CASE WHEN created_at >= NOW() - INTERVAL '7 days'  THEN 1 END)                         AS week_count,
+          COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END)                         AS month_count
+        FROM orders WHERE user_id = %s
+    """, (user_id,)).fetchone()
+
+    # ── Chart data: last 30 days daily spend ──
+    chart_rows = db.execute("""
+        SELECT created_at::date AS day,
+               COALESCE(SUM(total_amount), 0) AS spent,
+               COUNT(*) AS orders
+        FROM orders
+        WHERE user_id = %s AND created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY day ORDER BY day
+    """, (user_id,)).fetchall()
+
+    chart_labels  = [r['day'] for r in chart_rows]
+    chart_spent   = [float(r['spent']) for r in chart_rows]
+
+    # ── Weekly aggregation for weekly chart (last 4 weeks) ──
+    week_rows = db.execute("""
+        SELECT DATE_TRUNC('week', created_at)::date AS week_start,
+               COALESCE(SUM(total_amount), 0) AS spent
+        FROM orders
+        WHERE user_id = %s AND created_at >= NOW() - INTERVAL '28 days'
+        GROUP BY week_start ORDER BY week_start
+    """, (user_id,)).fetchall()
+
+    week_labels = [f"Week of {r['week_start']}" for r in week_rows]
+    week_spent  = [float(r['spent']) for r in week_rows]
+
     total_spent = sum(o['total_amount'] for o in orders)
     notif_count = get_unread_notification_count(user_id)
     db.close()
 
     return render_template('history.html', orders=orders, period=period,
-                           total_spent=total_spent, notif_count=notif_count)
+                           total_spent=total_spent, summary=summary,
+                           chart_labels=chart_labels, chart_spent=chart_spent,
+                           week_labels=week_labels, week_spent=week_spent,
+                           notif_count=notif_count)
 
 @user_bp.route('/order/<int:order_id>')
 @login_required

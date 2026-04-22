@@ -1,35 +1,92 @@
 {% extends 'base.html' %}
-{% block title %}Order History{% endblock %}
-{% block page_title %}Order History{% endblock %}
+{% block title %}My Expenses{% endblock %}
+{% block page_title %}My Expenses{% endblock %}
+
+{% block extra_css %}
+<style>
+.summary-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px; }
+.summary-box   { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:18px 16px; text-align:center; transition:var(--transition); }
+.summary-box:hover { border-color:var(--accent); transform:translateY(-2px); }
+.summary-box .sb-icon { font-size:24px; margin-bottom:8px; }
+.summary-box .sb-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:6px; }
+.summary-box .sb-amount { font-size:22px; font-weight:900; color:var(--accent); }
+.summary-box .sb-sub { font-size:11px; color:var(--text-secondary); margin-top:3px; }
+.chart-tabs { display:flex; gap:8px; margin-bottom:16px; }
+.chart-tab { padding:6px 16px; border-radius:99px; border:1px solid var(--border); font-size:12px; font-weight:600; cursor:pointer; color:var(--text-secondary); transition:var(--transition); background:none; font-family:inherit; }
+.chart-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+@media(max-width:600px) {
+  .summary-strip { grid-template-columns:1fr 1fr; }
+  .summary-box .sb-amount { font-size:18px; }
+}
+@media(max-width:380px) {
+  .summary-strip { grid-template-columns:1fr; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-body">
   <div class="page-header">
     <div>
-      <h1 class="page-header-title">📋 Order History</h1>
-      <p class="page-header-sub">Total spent: <strong style="color:var(--accent)">₹{{ "%.2f"|format(total_spent) }}</strong></p>
+      <h1 class="page-header-title">📊 My Expenses</h1>
+      <p class="page-header-sub">Track your canteen spending over time</p>
     </div>
   </div>
 
-  <!-- Period Filter -->
+  <!-- ── Summary Boxes ─────────────────────────────────── -->
+  <div class="summary-strip">
+    <div class="summary-box">
+      <div class="sb-icon">☀️</div>
+      <div class="sb-label">Today</div>
+      <div class="sb-amount">₹{{ "%.0f"|format(summary.day_total) }}</div>
+      <div class="sb-sub">{{ summary.day_count }} order{{ 's' if summary.day_count != 1 }}</div>
+    </div>
+    <div class="summary-box">
+      <div class="sb-icon">📅</div>
+      <div class="sb-label">This Week</div>
+      <div class="sb-amount">₹{{ "%.0f"|format(summary.week_total) }}</div>
+      <div class="sb-sub">{{ summary.week_count }} order{{ 's' if summary.week_count != 1 }}</div>
+    </div>
+    <div class="summary-box">
+      <div class="sb-icon">🗓️</div>
+      <div class="sb-label">This Month</div>
+      <div class="sb-amount">₹{{ "%.0f"|format(summary.month_total) }}</div>
+      <div class="sb-sub">{{ summary.month_count }} order{{ 's' if summary.month_count != 1 }}</div>
+    </div>
+  </div>
+
+  <!-- ── Spending Graph ─────────────────────────────────── -->
+  <div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+      <h3 class="card-title">📈 Spending Graph</h3>
+      <div class="chart-tabs">
+        <button class="chart-tab active" onclick="switchChart('daily',this)">Daily (30d)</button>
+        <button class="chart-tab" onclick="switchChart('weekly',this)">Weekly</button>
+      </div>
+    </div>
+    <div style="position:relative;height:260px;">
+      <canvas id="spendChart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Period Filter ─────────────────────────────────── -->
   <div class="cat-pills" style="margin-bottom:20px;">
-    <a href="?period=day" class="cat-pill {% if period=='day' %}active{% endif %}">Today</a>
-    <a href="?period=week" class="cat-pill {% if period=='week' %}active{% endif %}">This Week</a>
+    <a href="?period=day"   class="cat-pill {% if period=='day'   %}active{% endif %}">Today</a>
+    <a href="?period=week"  class="cat-pill {% if period=='week'  %}active{% endif %}">This Week</a>
     <a href="?period=month" class="cat-pill {% if period=='month' %}active{% endif %}">Last 30 Days</a>
   </div>
 
+  <!-- ── Period total ──────────────────────────────────── -->
   {% if orders %}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+    <span style="font-size:13px;color:var(--text-secondary);">{{ orders|length }} order(s) in selected period</span>
+    <span style="font-weight:800;font-size:16px;color:var(--accent);">Total: ₹{{ "%.2f"|format(total_spent) }}</span>
+  </div>
+
   <div class="table-responsive-wrap">
     <table>
       <thead>
-        <tr>
-          <th>Order #</th>
-          <th>Items</th>
-          <th>Amount</th>
-          <th>Status</th>
-          <th>Payment</th>
-          <th>Date</th>
-          <th>Action</th>
-        </tr>
+        <tr><th>Order #</th><th>Items</th><th>Amount</th><th>Status</th><th>Payment</th><th>Date</th><th></th></tr>
       </thead>
       <tbody>
         {% for o in orders %}
@@ -55,4 +112,73 @@
   </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const dailyLabels = {{ chart_labels | tojson }};
+const dailyData   = {{ chart_spent  | tojson }};
+const weeklyLabels= {{ week_labels  | tojson }};
+const weeklyData  = {{ week_spent   | tojson }};
+
+const accent = '#f97316';
+const gradStop = 'rgba(249,115,22,0.15)';
+
+function makeDataset(labels, data) {
+  return {
+    labels,
+    datasets: [{
+      label: 'Spent (₹)',
+      data,
+      borderColor: accent,
+      backgroundColor: (ctx) => {
+        const g = ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height);
+        g.addColorStop(0, 'rgba(249,115,22,0.4)');
+        g.addColorStop(1, 'rgba(249,115,22,0)');
+        return g;
+      },
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: accent,
+      pointRadius: data.length < 15 ? 5 : 3,
+      pointHoverRadius: 7,
+    }]
+  };
+}
+
+const cfg = {
+  type: 'line',
+  data: makeDataset(dailyLabels, dailyData),
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1c2333',
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderWidth: 1,
+        titleColor: '#e6edf3',
+        bodyColor: '#8b949e',
+        callbacks: { label: ctx => ` ₹${ctx.parsed.y.toFixed(2)}` }
+      }
+    },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b949e', callback: v => '₹'+v } }
+    }
+  }
+};
+
+const chart = new Chart(document.getElementById('spendChart'), cfg);
+
+function switchChart(type, btn) {
+  document.querySelectorAll('.chart-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const d = type === 'weekly' ? makeDataset(weeklyLabels, weeklyData) : makeDataset(dailyLabels, dailyData);
+  chart.data = d;
+  chart.update();
+}
+</script>
 {% endblock %}

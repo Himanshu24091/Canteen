@@ -1,20 +1,42 @@
 {% extends 'base.html' %}
-{% block title %}Reports{% endblock %}
+{% block title %}Reports & Analytics{% endblock %}
 {% block page_title %}Reports & Analytics{% endblock %}
+
+{% block extra_css %}
+<style>
+.report-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+.user-spend-table th, .user-spend-table td { padding:10px 12px; font-size:13px; }
+.spend-bar { height:6px; border-radius:99px; background:rgba(249,115,22,0.15); overflow:hidden; margin-top:4px; }
+.spend-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,var(--accent),#fbbf24); }
+.chart-tabs { display:flex; gap:8px; }
+.chart-tab { padding:5px 14px; border-radius:99px; border:1px solid var(--border); font-size:12px; font-weight:600; cursor:pointer; color:var(--text-secondary); transition:var(--transition); background:none; font-family:inherit; }
+.chart-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.view-tab { padding:5px 14px; border-radius:99px; border:1px solid var(--border); font-size:12px; font-weight:600; cursor:pointer; color:var(--text-secondary); transition:var(--transition); background:none; font-family:inherit; }
+.view-tab.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+@media(max-width:900px) { .report-summary { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:600px) { .report-summary { grid-template-columns:1fr 1fr; } }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-body">
   <div class="page-header">
-    <h1 class="page-header-title">📈 Reports</h1>
+    <div>
+      <h1 class="page-header-title">📈 Reports & Analytics</h1>
+      <p class="page-header-sub">Revenue, orders, and per-user spending breakdown</p>
+    </div>
     <a href="{{ url_for('admin.export_orders') }}" class="btn btn-secondary"><i class="fas fa-download"></i> Export CSV</a>
   </div>
 
-  <div class="cat-pills" style="margin-bottom:20px;">
-    <a href="?period=day" class="cat-pill {% if period=='day' %}active{% endif %}">Today</a>
-    <a href="?period=week" class="cat-pill {% if period=='week' %}active{% endif %}">This Week</a>
+  <!-- Period filter -->
+  <div class="cat-pills" style="margin-bottom:24px;">
+    <a href="?period=day"   class="cat-pill {% if period=='day'   %}active{% endif %}">Today</a>
+    <a href="?period=week"  class="cat-pill {% if period=='week'  %}active{% endif %}">This Week</a>
     <a href="?period=month" class="cat-pill {% if period=='month' %}active{% endif %}">Last 30 Days</a>
   </div>
 
-  <div class="stats-grid" style="margin-bottom:24px;">
+  <!-- Summary cards -->
+  <div class="report-summary">
     <div class="stat-card">
       <div class="stat-icon orange"><i class="fas fa-receipt"></i></div>
       <div><div class="stat-value">{{ summary.total_orders }}</div><div class="stat-label">Total Orders</div></div>
@@ -33,45 +55,235 @@
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-    <!-- Top Users -->
+  <!-- Revenue Charts -->
+  <div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+      <h3 class="card-title">📊 Revenue Over Time</h3>
+      <div class="chart-tabs">
+        <button class="chart-tab active" onclick="switchRevChart('daily',this)">Daily (30d)</button>
+        <button class="chart-tab" onclick="switchRevChart('weekly',this)">Weekly (8w)</button>
+      </div>
+    </div>
+    <div style="position:relative;height:280px;">
+      <canvas id="revChart"></canvas>
+    </div>
+  </div>
+
+  <!-- User spending chart + table side by side -->
+  <div class="grid-2" style="margin-bottom:24px;">
+
+    <!-- Top users bar chart -->
     <div class="card">
-      <div class="card-header"><h3 class="card-title">🏆 Top Customers</h3></div>
-      <div class="table-wrapper" style="border:none;">
-        <table>
-          <thead><tr><th>Name</th><th>Orders</th><th>Spent</th></tr></thead>
+      <div class="card-header">
+        <h3 class="card-title">🏆 Top Spenders (30d)</h3>
+      </div>
+      <div style="position:relative;height:280px;">
+        <canvas id="userChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Top users table for selected period -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">🎯 Top Customers ({{ period }})</h3>
+      </div>
+      <div class="table-responsive-wrap" style="border:none;">
+        <table class="user-spend-table">
+          <thead><tr><th>#</th><th>Name</th><th>Orders</th><th>Spent</th></tr></thead>
           <tbody>
             {% for u in top_users %}
             <tr>
-              <td><strong>{{ u.name }}</strong></td>
+              <td style="color:var(--text-muted);font-weight:700;">{{ loop.index }}</td>
+              <td><div style="font-weight:600;">{{ u.name }}</div><div style="font-size:11px;color:var(--text-muted);">{{ u.email }}</div></td>
               <td>{{ u.order_count }}</td>
-              <td style="color:var(--accent);font-weight:700;">₹{{ "%.0f"|format(u.spent) }}</td>
+              <td style="color:var(--accent);font-weight:800;">₹{{ "%.0f"|format(u.spent) }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="3" style="text-align:center;color:var(--text-muted);">No data</td></tr>
+            <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:30px;">No data for this period</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
+  </div>
 
-    <!-- Daily Revenue -->
-    <div class="card">
-      <div class="card-header"><h3 class="card-title">📅 Daily Revenue (30 days)</h3></div>
-      <div style="max-height:320px;overflow-y:auto;">
-        {% for d in daily_revenue %}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
-          <div style="font-size:13px;">{{ d.day }}</div>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-size:12px;color:var(--text-secondary);">{{ d.orders }} orders</span>
-            <strong style="color:var(--green);">₹{{ "%.0f"|format(d.revenue) }}</strong>
-          </div>
-        </div>
-        {% else %}
-        <div class="empty-state" style="padding:30px 0;"><p>No data available.</p></div>
-        {% endfor %}
+  <!-- Per-user Daily / Weekly / Monthly Spending Table -->
+  <div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+      <h3 class="card-title">👥 Per-User Expenditure Breakdown</h3>
+      <div style="display:flex;gap:8px;">
+        <button class="view-tab active" onclick="showView('day',this)">Daily</button>
+        <button class="view-tab" onclick="showView('week',this)">Weekly</button>
+        <button class="view-tab" onclick="showView('month',this)">Monthly</button>
       </div>
     </div>
+
+    <div class="table-responsive-wrap" style="border:none;">
+      <table id="userSpendTable">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th class="col-day">Today (₹)</th>
+            <th class="col-day">Today Orders</th>
+            <th class="col-week" style="display:none">This Week (₹)</th>
+            <th class="col-week" style="display:none">Week Orders</th>
+            <th class="col-month" style="display:none">This Month (₹)</th>
+            <th class="col-month" style="display:none">Month Orders</th>
+            <th>Spending Bar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set max_month = user_spending|map(attribute='month_spent')|max|default(1) %}
+          {% for u in user_spending %}
+          <tr>
+            <td>
+              <div style="font-weight:600;">{{ u.name }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ u.email }}</div>
+            </td>
+            <!-- day -->
+            <td class="col-day" style="font-weight:700;color:{% if u.day_spent > 0 %}var(--accent){% else %}var(--text-muted){% endif %}">
+              ₹{{ "%.0f"|format(u.day_spent) }}
+            </td>
+            <td class="col-day">{{ u.day_orders }}</td>
+            <!-- week -->
+            <td class="col-week" style="display:none;font-weight:700;color:{% if u.week_spent > 0 %}var(--blue){% else %}var(--text-muted){% endif %}">
+              ₹{{ "%.0f"|format(u.week_spent) }}
+            </td>
+            <td class="col-week" style="display:none">{{ u.week_orders }}</td>
+            <!-- month -->
+            <td class="col-month" style="display:none;font-weight:700;color:{% if u.month_spent > 0 %}var(--green){% else %}var(--text-muted){% endif %}">
+              ₹{{ "%.0f"|format(u.month_spent) }}
+            </td>
+            <td class="col-month" style="display:none">{{ u.month_orders }}</td>
+            <!-- bar (always based on month) -->
+            <td style="min-width:120px;">
+              <div class="spend-bar">
+                <div class="spend-bar-fill" style="width:{{ ((u.month_spent / max_month)*100)|round|int if max_month > 0 else 0 }}%"></div>
+              </div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">₹{{ "%.0f"|format(u.month_spent) }} / mo</div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px;">No users found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// ── Data from server ──────────────────────────────────────────────
+const revDailyLabels  = {{ rev_labels   | tojson }};
+const revDailyData    = {{ rev_data     | tojson }};
+const revWeeklyLabels = {{ week_labels  | tojson }};
+const revWeeklyData   = {{ week_data    | tojson }};
+const userNames       = {{ usr_names    | tojson }};
+const userData        = {{ usr_data     | tojson }};
+
+// ── Chart helpers ─────────────────────────────────────────────────
+const COLORS = { orange:'#f97316', blue:'#3b82f6', green:'#22c55e', purple:'#8b5cf6' };
+
+function lineDataset(labels, data, color) {
+  return {
+    labels,
+    datasets:[{
+      label:'Revenue (₹)', data,
+      borderColor: color,
+      backgroundColor: ctx => {
+        const g = ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height);
+        g.addColorStop(0, color.replace(')', ',0.4)').replace('rgb','rgba'));
+        g.addColorStop(1, color.replace(')', ',0)').replace('rgb','rgba'));
+        return g;
+      },
+      fill:true, tension:0.4,
+      pointBackgroundColor: color,
+      pointRadius: data.length < 15 ? 5 : 3,
+      pointHoverRadius:7,
+    }]
+  };
+}
+
+const chartOpts = {
+  responsive:true, maintainAspectRatio:false,
+  interaction:{ mode:'index', intersect:false },
+  plugins:{
+    legend:{ display:false },
+    tooltip:{
+      backgroundColor:'#1c2333', borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+      titleColor:'#e6edf3', bodyColor:'#8b949e',
+      callbacks:{ label: ctx => ` ₹${ctx.parsed.y.toFixed(2)}` }
+    }
+  },
+  scales:{
+    x:{ grid:{ color:'rgba(255,255,255,0.05)' }, ticks:{ color:'#8b949e', maxTicksLimit:10 } },
+    y:{ grid:{ color:'rgba(255,255,255,0.05)' }, ticks:{ color:'#8b949e', callback: v=>'₹'+v } }
+  }
+};
+
+// ── Revenue line chart ────────────────────────────────────────────
+const revChart = new Chart(document.getElementById('revChart'), {
+  type:'line',
+  data: lineDataset(revDailyLabels, revDailyData, COLORS.orange),
+  options: chartOpts
+});
+
+function switchRevChart(type, btn) {
+  document.querySelectorAll('.chart-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const d = type==='weekly'
+    ? lineDataset(revWeeklyLabels, revWeeklyData, COLORS.blue)
+    : lineDataset(revDailyLabels,  revDailyData,  COLORS.orange);
+  revChart.data = d;
+  revChart.update();
+}
+
+// ── User bar chart ────────────────────────────────────────────────
+new Chart(document.getElementById('userChart'), {
+  type:'bar',
+  data:{
+    labels: userNames,
+    datasets:[{
+      label:'Monthly Spend (₹)',
+      data: userData,
+      backgroundColor: userNames.map((_,i)=>[
+        'rgba(249,115,22,0.7)','rgba(59,130,246,0.7)','rgba(34,197,94,0.7)',
+        'rgba(139,92,246,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.7)',
+        'rgba(14,165,233,0.7)','rgba(168,85,247,0.7)'
+      ][i % 8]),
+      borderRadius:8, borderSkipped:false,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'#1c2333', borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+        callbacks:{ label: ctx => ` ₹${ctx.parsed.y.toFixed(2)}` }
+      }
+    },
+    scales:{
+      x:{ grid:{display:false}, ticks:{ color:'#8b949e', maxRotation:30 } },
+      y:{ grid:{ color:'rgba(255,255,255,0.05)' }, ticks:{ color:'#8b949e', callback: v=>'₹'+v } }
+    }
+  }
+});
+
+// ── View tabs: toggle day/week/month columns ──────────────────────
+function showView(view, btn) {
+  document.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const map = { day:'.col-day', week:'.col-week', month:'.col-month' };
+  ['.col-day','.col-week','.col-month'].forEach(cls => {
+    document.querySelectorAll(cls).forEach(el => {
+      el.style.display = cls === map[view] ? '' : 'none';
+    });
+  });
+}
+</script>
 {% endblock %}
