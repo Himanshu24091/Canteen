@@ -293,8 +293,8 @@ def send_reminders():
            FROM users u
            LEFT JOIN orders o ON u.id=o.user_id AND o.payment_status='unpaid'
            WHERE u.role='user'
-           GROUP BY u.id HAVING pending > 0
-           ORDER BY pending DESC"""
+           GROUP BY u.id HAVING COALESCE(SUM(o.total_amount),0) > 0
+           ORDER BY COALESCE(SUM(o.total_amount),0) DESC"""
     ).fetchall()
     db.close()
     return render_template('admin/reminders.html', users=users)
