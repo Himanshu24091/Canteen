@@ -17,12 +17,12 @@ def dashboard():
     pending_amt = get_user_pending_amount(user_id)
 
     today_orders = db.execute(
-        "SELECT * FROM orders WHERE user_id = ? AND date(created_at) = date('now','localtime') ORDER BY created_at DESC",
+        "SELECT * FROM orders WHERE user_id = %s AND created_at::date = CURRENT_DATE ORDER BY created_at DESC",
         (user_id,)
     ).fetchall()
 
     recent_orders = db.execute(
-        "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5",
+        "SELECT * FROM orders WHERE user_id = %s ORDER BY created_at DESC LIMIT 5",
         (user_id,)
     ).fetchall()
 
@@ -100,10 +100,10 @@ def place_order():
             return jsonify({'success': False, 'message': 'No valid items found'}), 400
 
         cur = db.execute(
-            "INSERT INTO orders (user_id, total_amount, status, payment_status, notes) VALUES (?, ?, 'pending', 'unpaid', ?)",
+            "INSERT INTO orders (user_id, total_amount, status, payment_status, notes) VALUES (%s, %s, 'pending', 'unpaid', %s) RETURNING id",
             (session['user_id'], round(total, 2), notes)
         )
-        order_id = cur.lastrowid
+        order_id = cur.fetchone()['id']
 
         for it in validated:
             db.execute(
@@ -129,18 +129,18 @@ def history():
     db = get_db()
 
     if period == 'day':
-        date_filter = "date(o.created_at) = date('now','localtime')"
+        date_filter = "o.created_at::date = CURRENT_DATE"
     elif period == 'month':
-        date_filter = "o.created_at >= datetime('now','localtime','-30 days')"
+        date_filter = "o.created_at >= NOW() - INTERVAL '30 days'"
     else:
-        date_filter = "o.created_at >= datetime('now','localtime','-7 days')"
+        date_filter = "o.created_at >= NOW() - INTERVAL '7 days'"
 
     orders = db.execute(
-        f"""SELECT o.*, 
-               GROUP_CONCAT(oi.item_name || ' x' || oi.quantity, ', ') as items_summary
+        f"""SELECT o.*,
+               STRING_AGG(oi.item_name || ' x' || oi.quantity::text, ', ') as items_summary
             FROM orders o
             LEFT JOIN order_items oi ON o.id = oi.order_id
-            WHERE o.user_id = ? AND {date_filter}
+            WHERE o.user_id = %s AND {date_filter}
             GROUP BY o.id
             ORDER BY o.created_at DESC""",
         (user_id,)

@@ -16,10 +16,10 @@ def dashboard():
     db = get_db()
     total_users = db.execute("SELECT COUNT(*) as c FROM users WHERE role='user'").fetchone()['c']
     total_orders_today = db.execute(
-        "SELECT COUNT(*) as c FROM orders WHERE date(created_at)=date('now','localtime')"
+        "SELECT COUNT(*) as c FROM orders WHERE created_at::date = CURRENT_DATE"
     ).fetchone()['c']
     revenue_today = db.execute(
-        "SELECT COALESCE(SUM(total_amount),0) as r FROM orders WHERE date(created_at)=date('now','localtime') AND payment_status='paid'"
+        "SELECT COALESCE(SUM(total_amount),0) as r FROM orders WHERE created_at::date = CURRENT_DATE AND payment_status='paid'"
     ).fetchone()['r']
     total_pending = db.execute(
         "SELECT COALESCE(SUM(total_amount),0) as r FROM orders WHERE payment_status='unpaid'"
@@ -33,7 +33,7 @@ def dashboard():
         """SELECT oi.item_name, SUM(oi.quantity) as total_qty, SUM(oi.quantity*oi.price) as revenue
            FROM order_items oi
            JOIN orders o ON oi.order_id = o.id
-           WHERE o.created_at >= datetime('now','localtime','-30 days')
+           WHERE o.created_at >= NOW() - INTERVAL '30 days'
            GROUP BY oi.item_name ORDER BY total_qty DESC LIMIT 5"""
     ).fetchall()
     db.close()
@@ -306,11 +306,11 @@ def reports():
     db = get_db()
     period = request.args.get('period', 'week')
     if period == 'day':
-        date_filter = "date(o.created_at) = date('now','localtime')"
+        date_filter = "date(o.created_at) = CURRENT_DATE"
     elif period == 'month':
-        date_filter = "o.created_at >= datetime('now','localtime','-30 days')"
+        date_filter = "o.created_at >= NOW() - INTERVAL '30 days'"
     else:
-        date_filter = "o.created_at >= datetime('now','localtime','-7 days')"
+        date_filter = "o.created_at >= NOW() - INTERVAL '7 days'"
 
     summary = db.execute(
         f"""SELECT COUNT(*) as total_orders, COALESCE(SUM(total_amount),0) as total_revenue,
@@ -326,8 +326,8 @@ def reports():
     ).fetchall()
 
     daily_revenue = db.execute(
-        """SELECT date(created_at) as day, SUM(total_amount) as revenue, COUNT(*) as orders
-           FROM orders WHERE created_at >= datetime('now','localtime','-30 days')
+        """SELECT created_at::date as day, SUM(total_amount) as revenue, COUNT(*) as orders
+           FROM orders WHERE created_at >= NOW() - INTERVAL '30 days'
            GROUP BY day ORDER BY day"""
     ).fetchall()
 

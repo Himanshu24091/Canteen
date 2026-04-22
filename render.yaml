@@ -11,7 +11,5 @@ services:
         value: production
       - key: PYTHON_VERSION
         value: 3.11.0
-    disk:
-      name: canteen-data
-      mountPath: /opt/render/project/src/database
-      sizeGB: 1
+      - key: DATABASE_URL
+        value: postgresql://canteen_kdlc_user:p2k0jY5LgDShMXUPCUftqjW6m0FaUMfo@dpg-d7k23o9o3t8c738pu4dg-a/canteen_kdlc

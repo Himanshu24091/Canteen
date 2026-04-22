@@ -8,14 +8,20 @@ from utils.logger import setup_logging, log_startup, log_request, log_event, log
 import os
 import time
 
+# Load .env file for local development
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.permanent_session_lifetime = __import__('datetime').timedelta(days=7)
 
-    # Ensure required directories exist
+    # Ensure upload directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    os.makedirs(os.path.dirname(app.config['DATABASE_PATH']), exist_ok=True)
 
     # Setup colored logging
     setup_logging()
