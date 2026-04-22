@@ -18,6 +18,22 @@
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
 .grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
 
+/* ── Cart: items | summary sidebar ── */
+.cart-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ── Admin quick-actions grid ── */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+
 /* ── Table cards for mobile ── */
 .mobile-card { display: none; }
 
@@ -107,14 +123,30 @@
   .hero-btns { flex-direction: column !important; align-items: center !important; }
   .btn-hero-primary, .btn-hero-secondary { width: 100%; max-width: 280px; text-align: center; justify-content: center; }
 
-  /* Cart layout */
-  .cart-layout { display: grid !important; grid-template-columns: 1fr !important; }
+  /* Cart: stack items above summary on mobile */
+  .cart-layout {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  /* Summary card goes full-width & comes last (natural order) */
+  .cart-layout > div:last-child .card {
+    position: static !important;
+  }
 
   /* Filter row full-width */
   .filter-row .form-control { width: 100% !important; flex: 1 1 100% !important; }
 
+  /* Quick-actions: 2 cols on mobile */
+  .quick-actions {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
   /* Modal */
   .modal { width: 95% !important; padding: 20px !important; }
+
+  /* Order Summary in cart: always full width when stacked */
+  .cart-layout > div:last-child { width: 100%; }
+
 
   /* Toast */
   .toast-container { left: 12px; right: 12px; bottom: 12px; }
@@ -149,6 +181,10 @@
   [style*="repeat(auto-fit,minmax(180px"] {
     grid-template-columns: 1fr 1fr !important;
   }
+
+  /* Quick-actions: 2-col on very small screens */
+  .quick-actions { grid-template-columns: repeat(2, 1fr) !important; }
+
 
   .page-header-title { font-size: 18px !important; }
   .stat-value { font-size: 18px !important; }
