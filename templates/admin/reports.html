@@ -32,14 +32,22 @@
 @media(max-width:768px) {
   .card-header-wrap { flex-direction: column; align-items: flex-start; }
   .chart-tabs, .view-tabs { flex-wrap: wrap; }
-  .chart-box { height: 220px !important; }
-  /* Hide spend-bar column on small screens */
-  .hide-mobile { display: none !important; }
-  /* Per-user table: allow horizontal scroll */
-  .user-spend-table { min-width: 400px; }
 }
+/* Spend cell colour helpers — replaces Jinja2 inline style conditionals */
+.td-accent { font-weight:700; color:var(--accent); }
+.td-blue   { font-weight:700; color:var(--blue); }
+.td-green  { font-weight:700; color:var(--green); }
+.td-muted  { font-weight:700; color:var(--text-muted); }
 
 </style>
+<script>
+/* Apply spend-bar widths from data-pct attributes (avoids Jinja2 in style=) */
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.spend-bar-fill[data-pct]').forEach(function (el) {
+    el.style.width = el.getAttribute('data-pct') + '%';
+  });
+});
+</script>
 {% endblock %}
 
 {% block content %}
@@ -168,24 +176,24 @@
               <div style="font-size:11px;color:var(--text-muted);">{{ u.email }}</div>
             </td>
             <!-- day -->
-            <td class="col-day" style="font-weight:700;color:{% if u.day_spent > 0 %}var(--accent){% else %}var(--text-muted){% endif %}">
+            <td class="col-day {% if u.day_spent > 0 %}td-accent{% else %}td-muted{% endif %}">
               ₹{{ "%.0f"|format(u.day_spent) }}
             </td>
             <td class="col-day">{{ u.day_orders }}</td>
             <!-- week -->
-            <td class="col-week" style="display:none;font-weight:700;color:{% if u.week_spent > 0 %}var(--blue){% else %}var(--text-muted){% endif %}">
+            <td class="col-week {% if u.week_spent > 0 %}td-blue{% else %}td-muted{% endif %}" style="display:none">
               ₹{{ "%.0f"|format(u.week_spent) }}
             </td>
             <td class="col-week" style="display:none">{{ u.week_orders }}</td>
             <!-- month -->
-            <td class="col-month" style="display:none;font-weight:700;color:{% if u.month_spent > 0 %}var(--green){% else %}var(--text-muted){% endif %}">
+            <td class="col-month {% if u.month_spent > 0 %}td-green{% else %}td-muted{% endif %}" style="display:none">
               ₹{{ "%.0f"|format(u.month_spent) }}
             </td>
             <td class="col-month" style="display:none">{{ u.month_orders }}</td>
             <!-- bar (always based on month) -->
             <td style="min-width:140px;">
               <div class="spend-bar">
-                <div class="spend-bar-fill" style="width:{{ ((u.month_spent / max_month)*100)|round|int if max_month > 0 else 0 }}%"></div>
+                <div class="spend-bar-fill" data-pct="{{ ((u.month_spent / max_month)*100)|round|int if max_month > 0 else 0 }}"></div>
               </div>
               <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">₹{{ "%.0f"|format(u.month_spent) }} / mo</div>
             </td>
@@ -203,14 +211,28 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- Server data — type=application/json avoids IDE JS linter false-positives -->
+<script id="chartData" type="application/json">
+{
+  "revLabels":  {{ rev_labels   | tojson }},
+  "revData":    {{ rev_data     | tojson }},
+  "weekLabels": {{ week_labels  | tojson }},
+  "weekData":   {{ week_data    | tojson }},
+  "usrNames":   {{ usr_names    | tojson }},
+  "usrData":    {{ usr_data     | tojson }}
+}
+</script>
+
 <script>
-// ── Data from server ──────────────────────────────────────────────
-const revDailyLabels  = {{ rev_labels   | tojson }};
-const revDailyData    = {{ rev_data     | tojson }};
-const revWeeklyLabels = {{ week_labels  | tojson }};
-const revWeeklyData   = {{ week_data    | tojson }};
-const userNames       = {{ usr_names    | tojson }};
-const userData        = {{ usr_data     | tojson }};
+// ── Parse server data ─────────────────────────────────────────────
+const _d          = JSON.parse(document.getElementById('chartData').textContent);
+const revDailyLabels  = _d.revLabels;
+const revDailyData    = _d.revData;
+const revWeeklyLabels = _d.weekLabels;
+const revWeeklyData   = _d.weekData;
+const userNames       = _d.usrNames;
+const userData        = _d.usrData;
 
 // ── Chart helpers ─────────────────────────────────────────────────
 const COLORS = { orange:'#f97316', blue:'#3b82f6', green:'#22c55e', purple:'#8b5cf6' };
