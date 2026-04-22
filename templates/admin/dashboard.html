@@ -30,14 +30,14 @@
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div class="grid-2" style="margin-top:0;">
     <!-- Recent Orders -->
     <div class="card">
       <div class="card-header">
         <h3 class="card-title">Recent Orders</h3>
         <a href="{{ url_for('admin.all_orders') }}" class="btn btn-secondary btn-sm">View All</a>
       </div>
-      <div class="table-wrapper" style="border:none;">
+      <div class="table-responsive-wrap" style="border:none;">
         <table>
           <thead><tr><th>User</th><th>Amount</th><th>Status</th></tr></thead>
           <tbody>

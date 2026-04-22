@@ -1,0 +1,173 @@
+/* ═══════════════════════════════════════════════════
+   SMARTCANTEEN — FULL RESPONSIVE STYLESHEET
+   Breakpoints: 1024px (tablet), 768px (mobile), 480px (small)
+═══════════════════════════════════════════════════ */
+
+/* Alias: old .table-wrapper is also responsive */
+.table-wrapper,
+.table-responsive-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+
+/* ── Utility: responsive grid helpers ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+
+/* ── Table cards for mobile ── */
+.mobile-card { display: none; }
+
+/* ── Filter row ── */
+.filter-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+.filter-row .form-control { width: auto; flex: 1; min-width: 130px; }
+.filter-row .btn { white-space: nowrap; }
+
+/* ── Action buttons inside tables ── */
+.action-btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* ─────────────────────────────────────────────────
+   TABLET  ≤ 1024px
+───────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+
+  /* Admin dashboard 2-col → 1-col */
+  [style*="grid-template-columns:1fr 1fr"] {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   MOBILE  ≤ 768px
+───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Layout */
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-close { display: flex !important; }
+  .sidebar-overlay.open { display: block; }
+  .topbar { left: 0 !important; }
+  .main-content { margin-left: 0 !important; }
+  .hamburger { display: flex !important; }
+
+  /* Page padding */
+  .page-body { padding: 12px !important; }
+  .flash-container { padding: 12px 12px 0 !important; }
+
+  /* Page header stacks */
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px;
+  }
+  .page-header-title { font-size: 20px !important; }
+
+  /* Stats grid: 2 cols on mobile */
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+  .stat-card { padding: 14px !important; gap: 10px !important; }
+  .stat-value { font-size: 20px !important; }
+  .stat-icon { width: 40px !important; height: 40px !important; font-size: 16px !important; }
+
+  /* Cards */
+  .card { padding: 16px !important; }
+
+  /* Forms */
+  .form-row { grid-template-columns: 1fr !important; gap: 0 !important; }
+
+  /* Grid helpers */
+  .grid-2, .grid-3, .grid-auto { grid-template-columns: 1fr !important; }
+
+  /* Any inline 2-col grids */
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="grid-template-columns: 1fr 1fr"] {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Menu grid */
+  .menu-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+  .menu-card-img { height: 120px !important; font-size: 36px !important; }
+
+  /* Tables → hide on mobile, show card view */
+  .table-responsive-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius); }
+  .table-responsive-wrap table { min-width: 560px; }
+
+  /* Auth */
+  .auth-card { padding: 24px 18px !important; }
+
+  /* Hero */
+  .hero-emoji { font-size: 52px !important; }
+  .hero-btns { flex-direction: column !important; align-items: center !important; }
+  .btn-hero-primary, .btn-hero-secondary { width: 100%; max-width: 280px; text-align: center; justify-content: center; }
+
+  /* Cart layout */
+  .cart-layout { display: grid !important; grid-template-columns: 1fr !important; }
+
+  /* Filter row full-width */
+  .filter-row .form-control { width: 100% !important; flex: 1 1 100% !important; }
+
+  /* Modal */
+  .modal { width: 95% !important; padding: 20px !important; }
+
+  /* Toast */
+  .toast-container { left: 12px; right: 12px; bottom: 12px; }
+  .toast { min-width: unset !important; width: 100%; }
+
+  /* Dashboard quick-links & action cards */
+  [style*="repeat(auto-fit,minmax(160px"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  [style*="repeat(auto-fit,minmax(180px"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Topbar title */
+  .topbar-title { font-size: 14px !important; }
+
+  /* Notification items */
+  .notif-item { padding: 12px !important; }
+
+  /* Reports two-col summary */
+  .report-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ─────────────────────────────────────────────────
+   SMALL MOBILE  ≤ 480px
+───────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr 1fr !important; }
+  .menu-grid { grid-template-columns: 1fr !important; }
+
+  [style*="repeat(auto-fit,minmax(160px"],
+  [style*="repeat(auto-fit,minmax(180px"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .page-header-title { font-size: 18px !important; }
+  .stat-value { font-size: 18px !important; }
+
+  /* Condensed table scroll */
+  .table-responsive-wrap table { min-width: 480px; }
+
+  /* profile avatar */
+  [style*="width:72px"] { width: 52px !important; height: 52px !important; font-size: 22px !important; }
+
+  /* order detail badges */
+  .badge { font-size: 10px !important; padding: 2px 7px !important; }
+}
+
+/* ─────────────────────────────────────────────────
+   LAPTOP  1025px – 1280px  (minor tweaks)
+───────────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1280px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .menu-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important; }
+  .page-body { padding: 20px !important; }
+}
