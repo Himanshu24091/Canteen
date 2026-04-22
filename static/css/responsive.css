@@ -64,18 +64,74 @@
 ───────────────────────────────────────────────── */
 @media (max-width: 768px) {
 
-  /* Layout */
-  .sidebar { transform: translateX(-100%); }
-  .sidebar.open { transform: translateX(0); }
-  .sidebar-close { display: flex !important; }
+  /* ── Sidebar: slide off-canvas on mobile ───────────── */
+  .sidebar         { transform: translateX(-100%); }
+  .sidebar.open    { transform: translateX(0); }
+  .sidebar-close   { display: flex !important; }
   .sidebar-overlay.open { display: block; }
-  .topbar { left: 0 !important; }
-  .main-content { margin-left: 0 !important; }
-  .hamburger { display: flex !important; }
+  .topbar          { left: 0 !important; }
+  .main-content    { margin-left: 0 !important; }
+  .hamburger       { display: flex !important; }
+
+  /* ── SIDEBAR MOBILE FIX ─────────────────────────────── */
+
+
+  /* Sidebar: full screen height, flex column, footer always pinned */
+  .sidebar {
+    height: 100dvh !important;        /* dynamic viewport height (phone browser) */
+    height: 100vh !important;         /* fallback */
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;       /* the sidebar box itself doesn't scroll */
+  }
+
+  /* Nav area: fills remaining space and scrolls if needed */
+  .sidebar .sidebar-nav {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    min-height: 0 !important;          /* critical: allows flex child to shrink */
+  }
+
+  /* Footer: never shrinks, always visible at bottom */
+  .sidebar .sidebar-footer {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    border-top: 1px solid var(--border) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 12px 16px !important;
+    background: var(--bg-secondary) !important;
+  }
+
+  /* Make sure logout text is visible */
+  .sidebar .btn-logout {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 14px !important;
+    color: var(--text-secondary) !important;
+  }
+
+  /* Theme toggle always visible */
+  .sidebar .theme-toggle {
+    display: flex !important;
+    flex-shrink: 0 !important;
+  }
+
 
   /* Page padding */
   .page-body { padding: 12px !important; }
   .flash-container { padding: 12px 12px 0 !important; }
+
+  /* All card-headers: wrap title + actions on mobile */
+  .card-header {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  .card-header .card-title { flex: 1; min-width: 0; }
 
   /* Page header stacks */
   .page-header {
