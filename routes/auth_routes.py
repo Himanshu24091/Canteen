@@ -81,8 +81,12 @@ def register():
 @auth_bp.route('/logout')
 def logout():
     name = session.get('user_name', 'Unknown')
-    log_event('🚪', 'LOGOUT', name, BYELLOW)
+    reason = request.args.get('reason', '')
+    log_event('🚪', 'LOGOUT', f"{name}{' (idle timeout)' if reason == 'idle' else ''}", BYELLOW)
     log_separator()
     session.clear()
-    flash('You have been logged out.', 'info')
+    if reason == 'idle':
+        flash('You were logged out due to inactivity.', 'warning')
+    else:
+        flash('You have been logged out.', 'info')
     return redirect(url_for('index'))

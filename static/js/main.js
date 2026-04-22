@@ -108,3 +108,124 @@ setTimeout(() => {
     setTimeout(() => a.remove(), 500);
   });
 }, 4000);
+
+// ─── Idle Auto-Logout ──────────────────────────────────────────────────────
+(function() {
+  // Only run for logged-in pages (sidebar exists)
+  if (!document.getElementById('sidebar')) return;
+
+  const IDLE_LIMIT    = 90 * 60 * 1000;   // 90 min in ms
+  const WARN_BEFORE   = 10 * 60 * 1000;   // warn 10 min before logout
+  const WARN_AT       = IDLE_LIMIT - WARN_BEFORE; // 80 min
+
+  let idleTimer   = null;
+  let warnTimer   = null;
+  let countdown   = null;
+  let warnShown   = false;
+  let secsLeft    = WARN_BEFORE / 1000;
+
+  // ── Build warning modal ──────────────────────────────────────
+  const modal = document.createElement('div');
+  modal.id = 'idleModal';
+  modal.style.cssText = `
+    display:none;position:fixed;inset:0;z-index:9999;
+    background:rgba(0,0,0,0.75);align-items:center;justify-content:center;
+  `;
+  modal.innerHTML = `
+    <div style="
+      background:var(--bg-card);border:1px solid var(--border);
+      border-radius:16px;padding:32px;max-width:400px;width:90%;
+      text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);
+      animation:scaleIn 0.25s ease;
+    ">
+      <div style="font-size:52px;margin-bottom:12px;">⏰</div>
+      <h2 style="font-size:20px;font-weight:800;margin-bottom:8px;color:var(--text-primary);">
+        Session Expiring Soon
+      </h2>
+      <p style="font-size:14px;color:var(--text-secondary);margin-bottom:20px;line-height:1.6;">
+        You've been inactive. You'll be logged out automatically in
+      </p>
+      <div id="idleCountdown" style="
+        font-size:42px;font-weight:900;
+        background:linear-gradient(135deg,var(--accent),#fbbf24);
+        -webkit-background-clip:text;background-clip:text;
+        -webkit-text-fill-color:transparent;
+        margin-bottom:24px;
+      ">10:00</div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <button id="idleStay" style="
+          padding:10px 28px;border-radius:99px;border:none;cursor:pointer;
+          background:var(--accent);color:#fff;font-size:15px;font-weight:700;
+          font-family:inherit;transition:all 0.2s;
+        ">
+          <i class="fas fa-check"></i> Stay Logged In
+        </button>
+        <a href="/logout" style="
+          padding:10px 28px;border-radius:99px;
+          border:1px solid var(--border);color:var(--text-secondary);
+          font-size:15px;font-weight:600;display:inline-flex;
+          align-items:center;gap:6px;
+        ">
+          <i class="fas fa-sign-out-alt"></i> Logout Now
+        </a>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // ── Helper: format mm:ss ─────────────────────────────────────
+  function fmt(s) {
+    const m = Math.floor(s / 60);
+    return `${String(m).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+  }
+
+  // ── Show warning modal ────────────────────────────────────────
+  function showWarn() {
+    if (warnShown) return;
+    warnShown = true;
+    secsLeft = WARN_BEFORE / 1000;
+    modal.style.display = 'flex';
+    document.getElementById('idleCountdown').textContent = fmt(secsLeft);
+
+    countdown = setInterval(() => {
+      secsLeft--;
+      document.getElementById('idleCountdown').textContent = fmt(Math.max(0, secsLeft));
+      if (secsLeft <= 0) {
+        clearInterval(countdown);
+        window.location.href = '/logout?reason=idle';
+      }
+    }, 1000);
+  }
+
+  // ── Hide warning & reset ──────────────────────────────────────
+  function dismissWarn() {
+    modal.style.display = 'none';
+    warnShown = false;
+    clearInterval(countdown);
+    resetTimers();
+    // Ping server to refresh last_activity
+    fetch('/api/keep-alive', { method: 'POST' }).catch(() => {});
+  }
+
+  // ── Reset idle timers on any activity ───────────────────────
+  function resetTimers() {
+    clearTimeout(warnTimer);
+    clearTimeout(idleTimer);
+    if (!warnShown) {
+      warnTimer = setTimeout(showWarn, WARN_AT);
+      idleTimer = setTimeout(() => { window.location.href = '/logout?reason=idle'; }, IDLE_LIMIT);
+    }
+  }
+
+  // ── Activity events ────────────────────────────────────────
+  ['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(ev => {
+    document.addEventListener(ev, () => { if (!warnShown) resetTimers(); }, { passive: true });
+  });
+
+  // ── Stay button ────────────────────────────────────────────
+  document.getElementById('idleStay').addEventListener('click', dismissWarn);
+
+  // ── Start ──────────────────────────────────────────────────
+  resetTimers();
+})();
+
