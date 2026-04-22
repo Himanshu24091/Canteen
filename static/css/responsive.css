@@ -276,14 +276,11 @@
   /* Summary cards: 2 cols */
   .report-summary { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
 
-  /* Chart boxes: reduced height */
-  .chart-box { height: 220px !important; }
+  /* Chart box: allow natural height on mobile (scrollable parent clips overflow) */
+  /* .chart-box height is controlled by inline style on each chart */
 
-  /* Per-user table: hide spend bar column */
-  .hide-mobile { display: none !important; }
-
-  /* Per-user table min width for scroll */
-  .user-spend-table { min-width: 380px; }
+  /* Spending Bar column is now always shown — table scrolls horizontally */
+  /* (hide-mobile class no longer used in reports) */
 
   /* Card header with view-tab group: wrap */
   .card-header-wrap { flex-direction: column; align-items: flex-start; }

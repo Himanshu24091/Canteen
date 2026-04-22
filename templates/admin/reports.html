@@ -101,8 +101,11 @@
       <div class="card-header">
         <h3 class="card-title">🏆 Top Spenders (30d)</h3>
       </div>
-      <div class="chart-box" style="height:280px;">
-        <canvas id="userChart"></canvas>
+      <!-- Horizontal scroll so all user bars/labels are visible on mobile -->
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <div class="chart-box" style="height:280px;min-width:480px;">
+          <canvas id="userChart"></canvas>
+        </div>
       </div>
     </div>
 
@@ -111,8 +114,8 @@
       <div class="card-header">
         <h3 class="card-title">🎯 Top Customers ({{ period }})</h3>
       </div>
-      <div class="table-responsive-wrap" style="border:none;">
-        <table class="user-spend-table">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:none;">
+        <table class="user-spend-table" style="min-width:380px;">
           <thead><tr><th>#</th><th>Name</th><th>Orders</th><th>Spent</th></tr></thead>
           <tbody>
             {% for u in top_users %}
@@ -142,8 +145,8 @@
       </div>
     </div>
 
-    <div class="table-responsive-wrap" style="border:none;">
-      <table id="userSpendTable">
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <table id="userSpendTable" style="min-width:580px;">
         <thead>
           <tr>
             <th>User</th>
@@ -153,7 +156,7 @@
             <th class="col-week" style="display:none">Week Orders</th>
             <th class="col-month" style="display:none">This Month (₹)</th>
             <th class="col-month" style="display:none">Month Orders</th>
-            <th class="hide-mobile">Spending Bar</th>
+            <th>Spending Bar</th>
           </tr>
         </thead>
         <tbody>
@@ -180,7 +183,7 @@
             </td>
             <td class="col-month" style="display:none">{{ u.month_orders }}</td>
             <!-- bar (always based on month) -->
-            <td class="hide-mobile" style="min-width:120px;">
+            <td style="min-width:140px;">
               <div class="spend-bar">
                 <div class="spend-bar-fill" style="width:{{ ((u.month_spent / max_month)*100)|round|int if max_month > 0 else 0 }}%"></div>
               </div>
