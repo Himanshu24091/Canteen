@@ -78,6 +78,45 @@ def register():
 
     return render_template('signup.html')
 
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if 'user_id' in session:
+        return redirect(url_for('user.dashboard'))
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm_password', '')
+
+        if not email or not password:
+            flash('Please provide an email and a new password.', 'danger')
+            return render_template('forgot_password.html')
+            
+        if password != confirm:
+            flash('Passwords do not match.', 'danger')
+            return render_template('forgot_password.html')
+
+        if len(password) < 6:
+            flash('Password must be at least 6 characters.', 'danger')
+            return render_template('forgot_password.html')
+
+        db = get_db()
+        user = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+
+        if user:
+            db.execute("UPDATE users SET password = ? WHERE id = ?", (generate_password_hash(password), user['id']))
+            db.commit()
+            db.close()
+            log_event('🔑', 'PASSWORD RESET', f"Password updated for <{email}>", BYELLOW)
+            flash('Your password has been successfully reset! Please log in.', 'success')
+            return redirect(url_for('auth.login'))
+        else:
+            db.close()
+            # Don't reveal that the email does not exist for security reasons
+            flash('If an account with that email exists, the password has been reset.', 'info')
+            return redirect(url_for('auth.login'))
+
+    return render_template('forgot_password.html')
 @auth_bp.route('/logout')
 def logout():
     name = session.get('user_name', 'Unknown')
