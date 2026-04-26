@@ -114,15 +114,18 @@ setTimeout(() => {
   // Only run for logged-in pages (sidebar exists)
   if (!document.getElementById('sidebar')) return;
 
-  const IDLE_LIMIT    = 90 * 60 * 1000;   // 90 min in ms
-  const WARN_BEFORE   = 10 * 60 * 1000;   // warn 10 min before logout
-  const WARN_AT       = IDLE_LIMIT - WARN_BEFORE; // 80 min
+  const IDLE_LIMIT    = 60 * 60 * 1000;   // 60 min — must match server IDLE_TIMEOUT_SECONDS
+  const WARN_BEFORE   = 10 * 60 * 1000;   // show warning 10 min before logout
+  const WARN_AT       = IDLE_LIMIT - WARN_BEFORE;  // 50 min
+  const PING_INTERVAL = 5  * 60 * 1000;   // ping server every 5 min IF user is active
 
-  let idleTimer   = null;
-  let warnTimer   = null;
-  let countdown   = null;
-  let warnShown   = false;
-  let secsLeft    = WARN_BEFORE / 1000;
+  let idleTimer    = null;
+  let warnTimer    = null;
+  let countdown    = null;
+  let warnShown    = false;
+  let secsLeft     = WARN_BEFORE / 1000;
+  let lastActive   = Date.now(); // track last real user activity
+
 
   // ── Build warning modal ──────────────────────────────────────
   const modal = document.createElement('div');
@@ -217,15 +220,29 @@ setTimeout(() => {
     }
   }
 
-  // ── Activity events ────────────────────────────────────────
+  // ── Activity events: reset CLIENT timer + track lastActive ─
   ['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(ev => {
-    document.addEventListener(ev, () => { if (!warnShown) resetTimers(); }, { passive: true });
+    document.addEventListener(ev, () => {
+      lastActive = Date.now();
+      if (!warnShown) resetTimers();
+    }, { passive: true });
   });
 
-  // ── Stay button ────────────────────────────────────────────
+  // ── Stay button ─────────────────────────────────────────────
   document.getElementById('idleStay').addEventListener('click', dismissWarn);
 
-  // ── Start ──────────────────────────────────────────────────
+  // ── Periodic server ping (every 5 min, only if user was recently active) ──
+  // This keeps server-side last_activity in sync when user is on one page.
+  // If user has been idle > (IDLE_LIMIT - PING_INTERVAL), stop pinging — let server expire.
+  setInterval(() => {
+    const idleSince = Date.now() - lastActive;
+    if (idleSince < (IDLE_LIMIT - PING_INTERVAL)) {
+      // User was active recently — keep server session alive
+      fetch('/api/keep-alive', { method: 'POST' }).catch(() => {});
+    }
+    // If idle too long — don't ping. Server will expire on next page load.
+  }, PING_INTERVAL);
+
+  // ── Start ───────────────────────────────────────────────────
   resetTimers();
 })();
-

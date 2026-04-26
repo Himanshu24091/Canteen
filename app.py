@@ -18,7 +18,7 @@ except ImportError:
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
-    app.permanent_session_lifetime = __import__('datetime').timedelta(days=7)
+    app.permanent_session_lifetime = __import__('datetime').timedelta(seconds=90 * 60)  # match idle timeout
 
     # Ensure upload directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -35,8 +35,8 @@ def create_app():
     app.register_blueprint(admin_bp)
 
     # ─── Idle Session Timeout ────────────────────────────────────
-    IDLE_TIMEOUT_SECONDS = 90 * 60  # 90 minutes idle = auto logout
-    SKIP_TIMEOUT_PATHS = ('/static/', '/login', '/logout', '/register', '/')
+    IDLE_TIMEOUT_SECONDS = 60 * 60   # 1 hour idle = auto logout
+    SKIP_TIMEOUT_PATHS = ('/static/', '/login', '/logout', '/register', '/', '/api/keep-alive')
 
     @app.before_request
     def before():

@@ -19,10 +19,11 @@ def login():
 
         if user and check_password_hash(user['password'], password):
             session.clear()
-            session['user_id'] = user['id']
-            session['user_name'] = user['name']
-            session['role'] = user['role']
-            session.permanent = True
+            session['user_id']       = user['id']
+            session['user_name']     = user['name']
+            session['role']          = user['role']
+            session['last_activity'] = __import__('datetime').datetime.utcnow().timestamp()
+            session.permanent        = True
             log_separator()
             log_event('🔑', 'LOGIN', f"{user['name']} ({user['role']})  <{email}>", BGREEN)
             if user['role'] == 'admin':
