@@ -1,0 +1,646 @@
+﻿{% extends "base.html" %}
+{% block title %}Activity Feed – {{ group.name }}{% endblock %}
+{% block page_title %}{{ group.name }} – Feed{% endblock %}
+
+{% block extra_css %}
+<style>
+.feed-wrap { display:grid; grid-template-columns:1fr 300px; gap:1.5rem; align-items:start; }
+@media (max-width:768px) { .feed-wrap { grid-template-columns:1fr; } }
+
+/* ── Chat card: fixed height, flex column ── */
+.chat-card {
+    display:flex;
+    flex-direction:column;
+    height:calc(100vh - 220px);   /* viewport minus header/tabs */
+    min-height:480px;
+    max-height:800px;
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    overflow:hidden;              /* children handle their own scroll */
+}
+.chat-header {
+    padding:1rem 1.2rem;
+    border-bottom:1px solid var(--border);
+    font-size:1.05rem; font-weight:700;
+    flex-shrink:0;
+    display:flex; align-items:center; gap:.5rem;
+}
+
+/* ── Scrollable message area ── */
+.chat-messages {
+    flex:1;
+    overflow-y:scroll;
+    overflow-x:hidden;
+    padding:1rem 1.2rem;
+    display:flex;
+    flex-direction:column;
+    gap:.65rem;
+    scroll-behavior:smooth;
+}
+/* Custom thin scrollbar */
+.chat-messages::-webkit-scrollbar       { width:5px; }
+.chat-messages::-webkit-scrollbar-track { background:transparent; }
+.chat-messages::-webkit-scrollbar-thumb {
+    background:rgba(249,115,22,.35);
+    border-radius:99px;
+}
+.chat-messages::-webkit-scrollbar-thumb:hover { background:var(--accent); }
+/* Firefox */
+.chat-messages { scrollbar-width:thin; scrollbar-color:rgba(249,115,22,.35) transparent; }
+
+/* ── Pinned input bar ── */
+.chat-input-bar {
+    display:flex; gap:.65rem; align-items:center;
+    padding:.85rem 1.1rem;
+    border-top:1px solid var(--border);
+    flex-shrink:0;
+    background:var(--bg-card);
+}
+.chat-input {
+    flex:1; border-radius:22px;
+    border:1.5px solid var(--border);
+    background:var(--bg-secondary);
+    color:var(--text-primary);
+    padding:.65rem 1.1rem;
+    font-size:.9rem; outline:none;
+    transition:border-color .2s;
+}
+.chat-input:focus { border-color:var(--accent); }
+.chat-send-btn {
+    width:42px; height:42px; border-radius:50%; border:none;
+    background:var(--accent); color:#fff; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1rem; flex-shrink:0;
+    transition:transform .15s, opacity .15s;
+}
+.chat-send-btn:hover { transform:scale(1.08); }
+.chat-send-btn:active { transform:scale(.95); opacity:.8; }
+
+/* ── Messages ── */
+.feed-msg { display:flex; gap:.75rem; align-items:flex-end; }
+.feed-msg.own { flex-direction:row-reverse; }
+.msg-avatar {
+    width:32px; height:32px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:.78rem; flex-shrink:0;
+    margin-bottom:4px;
+}
+.msg-body { max-width:72%; display:flex; flex-direction:column; }
+.msg-bubble {
+    padding:.55rem .9rem; border-radius:18px;
+    font-size:.9rem; line-height:1.45; word-break:break-word;
+}
+.feed-msg:not(.own):not(.system) .msg-bubble {
+    border-bottom-left-radius:4px;
+    background:var(--bg-secondary);
+    color:var(--text-primary);
+    border:1px solid var(--border);
+}
+.feed-msg.own .msg-bubble {
+    border-bottom-right-radius:4px;
+    background:var(--accent); color:#fff;
+}
+.feed-msg.system { justify-content:center; }
+.feed-msg.system .msg-bubble {
+    background:rgba(249,115,22,.08); color:var(--text-muted);
+    border:1px solid rgba(249,115,22,.2);
+    font-size:.8rem; padding:.4rem .85rem; border-radius:20px;
+    text-align:center;
+}
+.msg-meta { font-size:.7rem; opacity:.45; margin-top:.2rem; }
+.own .msg-meta { text-align:right; }
+
+/* ── Delete button (shown on hover) ── */
+.feed-msg { position:relative; }
+.msg-del-btn {
+    display:none;
+    position:absolute; top:0;
+    background:rgba(239,68,68,.85); color:#fff;
+    border:none; border-radius:50%;
+    width:22px; height:22px; cursor:pointer;
+    font-size:.7rem; align-items:center; justify-content:center;
+    line-height:1; transition:transform .15s;
+    z-index:5;
+}
+.feed-msg:hover .msg-del-btn { display:flex; }
+.msg-del-btn:hover { transform:scale(1.15); background:#dc2626; }
+.feed-msg.own  .msg-del-btn { right:0;  top:-8px; }
+.feed-msg:not(.own):not(.system) .msg-del-btn { left:0; top:-8px; }
+
+/* ── Clear-chat button in header ── */
+.clear-chat-btn {
+    margin-left:.5rem; padding:.28rem .65rem;
+    border-radius:8px; border:1px solid rgba(239,68,68,.4);
+    background:rgba(239,68,68,.1); color:#ef4444;
+    cursor:pointer; font-size:.76rem; font-weight:600;
+    display:flex; align-items:center; gap:.3rem;
+    transition:background .2s;
+}
+.clear-chat-btn:hover { background:rgba(239,68,68,.22); }
+
+/* ── Live dot (online indicator in header) ── */
+.live-dot {
+    width:8px; height:8px; border-radius:50%; background:#22c55e;
+    animation:pulse-dot 2s infinite;
+    display:inline-block;
+}
+@keyframes pulse-dot {
+    0%,100% { opacity:1; transform:scale(1);   }
+    50%      { opacity:.5; transform:scale(.75); }
+}
+
+/* ── Date divider ── */
+.date-divider {
+    display:flex; align-items:center; gap:.6rem;
+    font-size:.75rem; color:var(--text-muted);
+    margin:.25rem 0;
+}
+.date-divider::before,.date-divider::after {
+    content:''; flex:1; height:1px; background:var(--border);
+}
+
+/* ── Right panel ── */
+.quick-settle {
+    padding:.9rem 1rem; border-radius:12px;
+    background:rgba(239,68,68,.08); border-left:3px solid #ef4444;
+    margin-bottom:.65rem;
+    display:flex; align-items:center; justify-content:space-between;
+}
+.quick-settle-amount { font-size:1rem; font-weight:700; color:#ef4444; }
+.settle-mini-btn {
+    padding:.3rem .8rem; font-size:.8rem; font-weight:600;
+    background:var(--accent); color:#fff; border:none;
+    border-radius:8px; cursor:pointer;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+<div class="breadcrumb-bar" style="margin-bottom:1.2rem">
+    <a href="{{ url_for('group.list_groups') }}"><i class="fas fa-arrow-left"></i> Groups</a>
+    <span style="opacity:.4;margin:0 .5rem">/</span>
+    <a href="{{ url_for('group.dashboard', group_id=group.id) }}">{{ group.name }}</a>
+    <span style="opacity:.4;margin:0 .5rem">/</span>
+    <span>Activity Feed</span>
+</div>
+
+<!-- Quick Nav Tabs -->
+<div class="tab-bar" style="display:flex;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap">
+    <a href="{{ url_for('group.dashboard', group_id=group.id) }}" class="tab-btn">
+        <i class="fas fa-chart-pie"></i> Dashboard
+    </a>
+    <a href="{{ url_for('group.add_expense', group_id=group.id) }}" class="tab-btn">
+        <i class="fas fa-plus-circle"></i> Add Expense
+    </a>
+    <a href="{{ url_for('group.activity_feed', group_id=group.id) }}" class="tab-btn tab-active">
+        <i class="fas fa-comments"></i> Activity Feed
+    </a>
+</div>
+
+<div class="feed-wrap">
+    <!-- FEED -->
+<!-- ── Chat card ── -->
+<div class="chat-card">
+    <div class="chat-header">
+        💬 Activity Feed
+        <span class="live-dot" title="Live updates on"></span>
+        <span id="e2eStatus" style="font-size:.72rem;padding:.2rem .55rem;border-radius:20px;
+              background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25);
+              display:none;align-items:center;gap:.3rem">
+            🔒 E2EE
+        </span>
+        <span style="font-size:.78rem;font-weight:400;opacity:.5" id="msgCountLabel">
+            {{ messages|length }} message{{ 's' if messages|length != 1 }}
+        </span>
+        {% if membership.role == 'admin' or session.get('role') == 'admin' or group.created_by == session.get('user_id') %}
+        <button class="clear-chat-btn" onclick="clearAllChat()" title="Delete all messages">
+            <i class="fas fa-trash-alt"></i> Clear Chat
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Scrollable messages -->
+    <div class="chat-messages" id="feedMessages">
+        {% if messages %}
+            {% set ns = namespace(last_date='') %}
+            {% for msg in messages %}
+                {% set mdate = msg.created_at[:10] %}
+                {% if mdate != ns.last_date %}
+                <div class="date-divider">{{ mdate }}</div>
+                {% set ns.last_date = mdate %}
+                {% endif %}
+
+                {% if msg.type == 'system' %}
+                <div class="feed-msg system" data-id="{{ msg.id }}">
+                    <div class="msg-bubble">{{ msg.message }}</div>
+                </div>
+                {% else %}
+                {% set is_own = (msg.sender_id == session.get('user_id')) %}
+                {% set can_del = is_own or membership.role == 'admin' or session.get('role') == 'admin' %}
+                <div class="feed-msg {% if is_own %}own{% endif %}" data-id="{{ msg.id }}">
+                    {% if can_del %}
+                    <button class="msg-del-btn" onclick="deleteMsg({{ msg.id }})" title="Delete message">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    {% endif %}
+                    <div class="msg-avatar"
+                         style="background:hsl({{ (msg.sender_id or 1) * 47 % 360 }},55%,48%);color:#fff">
+                        {{ (msg.sender_name or 'S')[0].upper() }}
+                    </div>
+                    <div class="msg-body">
+                        {% if msg.is_encrypted and msg.iv %}
+                        <div class="msg-bubble e2e-pending"
+                             data-ct="{{ msg.message }}"
+                             data-iv="{{ msg.iv }}">🔒 Decrypting…</div>
+                        {% else %}
+                        <div class="msg-bubble">{{ msg.message }}</div>
+                        {% endif %}
+                        <div class="msg-meta">
+                            {% if not is_own %}{{ msg.sender_name or 'System' }} · {% endif %}
+                            {{ msg.created_at[11:16] }}
+                            {% if msg.is_encrypted %}<span style="opacity:.6"> 🔒</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;
+                    justify-content:center;opacity:.35;gap:.75rem;padding:2rem">
+            <i class="fas fa-comments" style="font-size:3rem"></i>
+            <p style="margin:0;font-size:.9rem">No activity yet. Start the conversation!</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Pinned input bar -->
+    <div class="chat-input-bar">
+        <input type="text" id="messageInput" class="chat-input"
+               placeholder="Type a message…" maxlength="500" autocomplete="off">
+        <button class="chat-send-btn" id="sendBtn" onclick="sendMessage()" title="Send">
+            <i class="fas fa-paper-plane"></i>
+        </button>
+    </div>
+</div>
+
+    <!-- RIGHT PANEL: Quick Settle -->
+    <div>
+        <div class="card" style="padding:1.5rem">
+            <h3 style="margin:0 0 1rem;font-size:1.1rem;font-weight:700">💳 Quick Settle</h3>
+            {% if balances %}
+                {% for b in balances %}
+                <div class="quick-settle">
+                    <div>
+                        <div style="font-weight:600;font-size:.9rem">{{ b.person }}</div>
+                        <div style="font-size:.8rem;opacity:.6">You owe</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:.5rem">
+                        <span class="quick-settle-amount">₹{{ "%.2f"|format(b.amount) }}</span>
+                        <form method="POST" action="{{ url_for('group.settle', group_id=group.id) }}" style="display:inline">
+                            <input type="hidden" name="to_user_id" value="{{ b.person_id }}">
+                            <input type="hidden" name="amount" value="{{ b.amount }}">
+                            <button type="submit" class="settle-mini-btn" onclick="return confirm('Settle ₹{{ '%.2f'|format(b.amount) }} with {{ b.person }}?')">Settle</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align:center;padding:1.5rem 0;opacity:.5">
+                    <i class="fas fa-check-circle" style="font-size:2rem;color:#22c55e"></i>
+                    <p style="margin:.5rem 0 0;font-size:.9rem">All settled up!</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="card" style="padding:1.2rem;margin-top:1rem">
+            <a href="{{ url_for('group.add_expense', group_id=group.id) }}" style="display:flex;align-items:center;justify-content:center;gap:.5rem;font-weight:600;color:var(--accent);text-decoration:none;padding:.5rem">
+                <i class="fas fa-plus-circle"></i> Add New Expense
+            </a>
+            <a href="{{ url_for('group.dashboard', group_id=group.id) }}" style="display:flex;align-items:center;justify-content:center;gap:.5rem;font-weight:600;opacity:.7;text-decoration:none;padding:.5rem">
+                <i class="fas fa-chart-pie"></i> View Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CONFIG
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+const FEED_GROUP_ID = {{ group.id }};
+const VIEWER_ID     = {{ session.get('user_id', 0) }};
+const IS_ADMIN      = {{ 'true' if (membership.role == 'admin' or session.get('role') == 'admin' or group.created_by == session.get('user_id')) else 'false' }};
+const POLL_URL      = `/groups/${FEED_GROUP_ID}/messages/poll`;
+const DEL_BASE      = `/groups/${FEED_GROUP_ID}/messages`;
+const CLEAR_URL     = `/groups/${FEED_GROUP_ID}/messages/clear`;
+const POLL_INTERVAL = 2000;
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   STATE
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+const feedEl  = document.getElementById('feedMessages');
+let lastMsgId = 0;
+let msgCount  = 0;
+let lastDate  = '';
+let groupAESKey = null;   // CryptoKey — set after E2EE init
+
+function seedLastId() {
+    feedEl.querySelectorAll('[data-id]').forEach(r => {
+        const id = parseInt(r.dataset.id, 10);
+        if (id > lastMsgId) lastMsgId = id;
+    });
+    msgCount = feedEl.querySelectorAll('[data-id]').length;
+}
+seedLastId();
+if (feedEl) feedEl.scrollTop = feedEl.scrollHeight;
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CRYPTO HELPERS  (Web Crypto API — no external libs)
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+const b64enc = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const b64dec = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+
+async function genRSAKeyPair() {
+    return crypto.subtle.generateKey(
+        { name:'RSA-OAEP', modulusLength:2048,
+          publicExponent:new Uint8Array([1,0,1]), hash:'SHA-256' },
+        true, ['encrypt','decrypt']
+    );
+}
+async function exportSpki(pubKey) {
+    return b64enc(await crypto.subtle.exportKey('spki', pubKey));
+}
+async function importSpki(b64) {
+    return crypto.subtle.importKey(
+        'spki', b64dec(b64),
+        { name:'RSA-OAEP', hash:'SHA-256' }, false, ['encrypt']
+    );
+}
+async function rsaEncrypt(pubKey, data) {
+    return b64enc(await crypto.subtle.encrypt({name:'RSA-OAEP'}, pubKey, data));
+}
+async function rsaDecrypt(privKey, b64) {
+    return crypto.subtle.decrypt({name:'RSA-OAEP'}, privKey, b64dec(b64));
+}
+async function aesEncrypt(key, plaintext) {
+    const iv  = crypto.getRandomValues(new Uint8Array(12));
+    const enc = new TextEncoder().encode(plaintext);
+    const ct  = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc);
+    return { ct: b64enc(ct), iv: b64enc(iv) };
+}
+async function aesDecrypt(key, ct, iv) {
+    const plain = await crypto.subtle.decrypt(
+        {name:'AES-GCM', iv: b64dec(iv)}, key, b64dec(ct)
+    );
+    return new TextDecoder().decode(plain);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   E2EE INITIALISATION
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+const PRIV_STORE = `e2e_priv_u${VIEWER_ID}`;
+const PUB_STORE  = `e2e_pub_u${VIEWER_ID}`;
+
+async function initE2EE() {
+    try {
+        let privKey, pubKeySpki;
+        const savedPriv = localStorage.getItem(PRIV_STORE);
+
+        if (savedPriv) {
+            privKey    = await crypto.subtle.importKey(
+                'jwk', JSON.parse(savedPriv),
+                {name:'RSA-OAEP', hash:'SHA-256'}, false, ['decrypt']
+            );
+            pubKeySpki = localStorage.getItem(PUB_STORE);
+        } else {
+            // First visit — generate key pair
+            const kp   = await genRSAKeyPair();
+            privKey    = kp.privateKey;
+            pubKeySpki = await exportSpki(kp.publicKey);
+            localStorage.setItem(PRIV_STORE, JSON.stringify(
+                await crypto.subtle.exportKey('jwk', privKey)
+            ));
+            localStorage.setItem(PUB_STORE, pubKeySpki);
+        }
+
+        // Register public key with server (idempotent)
+        await fetch('/groups/keys/register', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({public_key: pubKeySpki})
+        });
+
+        // Fetch group key info
+        const r    = await fetch(`/groups/${FEED_GROUP_ID}/keys`);
+        const data = await r.json();
+
+        if (data.my_encrypted_key) {
+            // Decrypt group key with our RSA private key
+            const raw = await rsaDecrypt(privKey, data.my_encrypted_key);
+            groupAESKey = await crypto.subtle.importKey(
+                'raw', raw, {name:'AES-GCM'}, true, ['encrypt','decrypt']
+            );
+        } else {
+            // We are the first — generate a fresh AES-256 group key
+            const rawKey = crypto.getRandomValues(new Uint8Array(32));
+            groupAESKey  = await crypto.subtle.importKey(
+                'raw', rawKey, {name:'AES-GCM'}, true, ['encrypt','decrypt']
+            );
+            // Distribute to every member who has registered a public key
+            const keysArr = [];
+            for (const m of data.members) {
+                if (!m.public_key) continue;
+                const mpk = await importSpki(m.public_key);
+                keysArr.push({ user_id: m.id, encrypted_key: await rsaEncrypt(mpk, rawKey) });
+            }
+            if (keysArr.length) {
+                await fetch(`/groups/${FEED_GROUP_ID}/keys/distribute`, {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({keys: keysArr})
+                });
+            }
+        }
+
+        // Distribute to members who joined after key was created
+        if (groupAESKey) {
+            const rawExp  = await crypto.subtle.exportKey('raw', groupAESKey);
+            const rawKey8 = new Uint8Array(rawExp);
+            const missing  = data.members.filter(m => m.public_key && !m.has_key);
+            if (missing.length) {
+                const keysArr = [];
+                for (const m of missing) {
+                    const mpk = await importSpki(m.public_key);
+                    keysArr.push({ user_id: m.id, encrypted_key: await rsaEncrypt(mpk, rawKey8) });
+                }
+                await fetch(`/groups/${FEED_GROUP_ID}/keys/distribute`, {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({keys: keysArr})
+                });
+            }
+        }
+
+        // Decrypt already-rendered messages
+        if (groupAESKey) await decryptPageMessages();
+
+        // Show 🔒 E2EE badge
+        const badge = document.getElementById('e2eStatus');
+        if (badge) badge.style.display = 'inline-flex';
+
+    } catch(err) {
+        console.warn('E2EE init error:', err);
+    }
+}
+
+async function decryptPageMessages() {
+    const pending = feedEl.querySelectorAll('.e2e-pending');
+    for (const el of pending) {
+        try {
+            el.textContent = await aesDecrypt(groupAESKey, el.dataset.ct, el.dataset.iv);
+            el.classList.remove('e2e-pending');
+        } catch { el.textContent = '🔒 Cannot decrypt'; }
+    }
+}
+
+// Boot E2EE
+if (window.crypto && window.crypto.subtle) initE2EE();
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   HELPERS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function isNearBottom() {
+    return feedEl.scrollHeight - feedEl.scrollTop - feedEl.clientHeight < 80;
+}
+function updateCount() {
+    const el = document.getElementById('msgCountLabel');
+    if (el) el.textContent = `${msgCount} message${msgCount!==1?'s':''}`;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   BUILD MESSAGE ELEMENT
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+function buildMsgEl(msg, decryptedText) {
+    const isOwn   = msg.sender_id === VIEWER_ID;
+    const canDel  = isOwn || IS_ADMIN;
+    const hue     = ((msg.sender_id || 1) * 47) % 360;
+    const timeStr = msg.created_at ? msg.created_at.substring(11,16) : 'now';
+    const dateStr = msg.created_at ? msg.created_at.substring(0,10) : '';
+
+    let divider = '';
+    if (dateStr && dateStr !== lastDate) { lastDate = dateStr; divider = `<div class="date-divider">${dateStr}</div>`; }
+
+    let html;
+    if (msg.type === 'system') {
+        html = `${divider}<div class="feed-msg system" data-id="${msg.id}"><div class="msg-bubble">${escHtml(msg.message)}</div></div>`;
+    } else {
+        const delBtn  = canDel ? `<button class="msg-del-btn" onclick="deleteMsg(${msg.id})" title="Delete"><i class="fas fa-times"></i></button>` : '';
+        const cls     = isOwn ? ' own' : '';
+        const meta    = isOwn ? timeStr : `${escHtml(msg.sender_name||'?')} &middot; ${timeStr}`;
+        const lock    = msg.is_encrypted ? ' <span style="opacity:.55">🔒</span>' : '';
+        const bubText = decryptedText !== undefined ? escHtml(decryptedText) : escHtml(msg.message);
+        html = `${divider}
+        <div class="feed-msg${cls}" data-id="${msg.id}">
+            ${delBtn}
+            <div class="msg-avatar" style="background:hsl(${hue},55%,48%);color:#fff">${escHtml((msg.sender_name||'?')[0].toUpperCase())}</div>
+            <div class="msg-body">
+                <div class="msg-bubble">${bubText}</div>
+                <div class="msg-meta">${meta}${lock}</div>
+            </div>
+        </div>`;
+    }
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html.trim();
+    return wrap;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SEND MESSAGE
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+async function sendMessage() {
+    const inp = document.getElementById('messageInput');
+    const txt = inp.value.trim();
+    if (!txt) return;
+    inp.value = '';
+
+    let body;
+    if (groupAESKey) {
+        const { ct, iv } = await aesEncrypt(groupAESKey, txt);
+        body = { message: ct, iv };
+    } else {
+        body = { message: txt };
+    }
+
+    const res = await fetch(`/groups/${FEED_GROUP_ID}/message`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+    });
+    if (!res.ok) inp.value = txt;
+}
+
+document.getElementById('messageInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   DELETE / CLEAR
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+async function deleteMsg(id) {
+    if (!confirm('Delete this message?')) return;
+    const res = await fetch(`${DEL_BASE}/${id}/delete`, {method:'POST'});
+    if (res.ok) {
+        const row = feedEl.querySelector(`[data-id="${id}"]`);
+        if (row) {
+            row.style.transition = 'opacity .25s,transform .25s';
+            row.style.opacity = '0'; row.style.transform = 'scale(.95)';
+            setTimeout(() => { row.remove(); msgCount--; updateCount(); }, 260);
+        }
+    }
+}
+
+async function clearAllChat() {
+    if (!confirm('Clear ALL messages? This cannot be undone.')) return;
+    const res = await fetch(CLEAR_URL, {method:'POST'});
+    if (res.ok) {
+        feedEl.innerHTML = `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:.35;gap:.75rem;padding:2rem"><i class="fas fa-comments" style="font-size:3rem"></i><p style="margin:0;font-size:.9rem">Chat cleared.</p></div>`;
+        lastMsgId = 0; msgCount = 0; lastDate = ''; updateCount();
+    }
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   POLLING
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+async function pollNewMessages() {
+    try {
+        const res  = await fetch(`${POLL_URL}?after=${lastMsgId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.messages?.length) return;
+
+        const atBottom = isNearBottom();
+        for (const msg of data.messages) {
+            feedEl.querySelector('.fa-comments')?.closest('div[style]')?.remove();
+            let decrypted;
+            if (msg.is_encrypted && msg.iv && groupAESKey) {
+                try { decrypted = await aesDecrypt(groupAESKey, msg.message, msg.iv); }
+                catch { decrypted = '🔒 Cannot decrypt'; }
+            }
+            const wrap = buildMsgEl(msg, decrypted);
+            while (wrap.firstChild) feedEl.appendChild(wrap.firstChild);
+            if (msg.id > lastMsgId) lastMsgId = msg.id;
+            msgCount++;
+        }
+        updateCount();
+        if (atBottom) feedEl.scrollTop = feedEl.scrollHeight;
+    } catch(e) { /* silent */ }
+}
+
+setInterval(pollNewMessages, POLL_INTERVAL);
+</script>
+{% endblock %}

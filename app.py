@@ -4,6 +4,7 @@ from database.init_db import init_db
 from routes.auth_routes import auth_bp
 from routes.user_routes import user_bp
 from routes.admin_routes import admin_bp
+from routes.group_routes import group_bp
 from utils.logger import setup_logging, log_startup, log_request, log_event, log_separator
 import os
 import time
@@ -33,6 +34,7 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(group_bp)
 
     # ─── Idle Session Timeout ────────────────────────────────────
     IDLE_TIMEOUT_SECONDS = 60 * 60   # 1 hour idle = auto logout

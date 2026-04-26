@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ expense.title }} – Expense Detail{% endblock %}
+{% block page_title %}Expense Detail{% endblock %}
+
+{% block content %}
+<div class="page-body">
+<div style="max-width:640px;margin:0 auto">
+    <div class="breadcrumb-bar" style="margin-bottom:1.2rem">
+        <a href="{{ url_for('group.dashboard', group_id=group.id) }}"><i class="fas fa-arrow-left"></i> {{ group.name }}</a>
+        <span style="opacity:.4;margin:0 .5rem">/</span>
+        <span>Expense</span>
+    </div>
+
+    <div class="card" style="padding:2rem">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem">
+            <div>
+                <h2 style="margin:0 0 .25rem;font-size:1.5rem;font-weight:700">{{ expense.title }}</h2>
+                {% if expense.note %}
+                <p style="margin:.25rem 0 0;opacity:.6">{{ expense.note }}</p>
+                {% endif %}
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:2rem;font-weight:800;color:var(--accent)">₹{{ "%.2f"|format(expense.total_amount) }}</div>
+                <span class="badge-pill">{{ expense.split_type|title }} Split</span>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+            <div class="info-tile">
+                <div class="info-tile-label">Paid By</div>
+                <div class="info-tile-value">{{ expense.paid_by_name }}</div>
+            </div>
+            <div class="info-tile">
+                <div class="info-tile-label">Date</div>
+                <div class="info-tile-value">{{ expense.created_at[:10] }}</div>
+            </div>
+        </div>
+
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:.75rem">👥 Participant Shares</h3>
+        <div class="expense-list">
+            {% for p in participants %}
+            <div class="expense-row" style="pointer-events:none">
+                <div style="display:flex;align-items:center;gap:.75rem">
+                    <div style="width:32px;height:32px;border-radius:50%;background:hsl({{ p.user_id * 47 % 360 }},60%,50%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem">
+                        {{ p.user_name[0].upper() }}
+                    </div>
+                    <div>
+                        <div style="font-weight:600">{{ p.user_name }}</div>
+                        {% if p.user_id == expense.paid_by %}
+                        <div style="font-size:.78rem;color:#22c55e">💳 Paid</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="expense-amount">₹{{ "%.2f"|format(p.amount_owed) }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+

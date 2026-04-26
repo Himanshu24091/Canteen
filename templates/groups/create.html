@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Create Group{% endblock %}
+{% block page_title %}Create Group{% endblock %}
+
+{% block content %}
+<div class="page-body">
+<div style="max-width:640px;margin:0 auto">
+    <div class="breadcrumb-bar" style="margin-bottom:1.2rem">
+        <a href="{{ url_for('group.list_groups') }}"><i class="fas fa-arrow-left"></i> Back to Groups</a>
+    </div>
+
+    <div class="card" style="padding:2rem">
+        <h2 style="margin:0 0 1.5rem;font-size:1.4rem;font-weight:700"><i class="fas fa-users" style="color:var(--accent)"></i> Create New Group</h2>
+
+        <form method="POST" id="createGroupForm">
+            <div class="form-group">
+                <label class="form-label">Group Name <span class="required">*</span></label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. Lunch Buddies, Office Team..." required maxlength="100" id="groupName">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Description <span style="opacity:.5">(optional)</span></label>
+                <textarea name="description" class="form-control" rows="3" placeholder="What is this group for?" maxlength="300"></textarea>
+            </div>
+
+            <div class="form-actions" style="display:flex;gap:1rem;margin-top:1.5rem">
+                <button type="submit" class="btn-primary" style="flex:1;padding:.75rem;border-radius:10px;font-weight:600;border:none;cursor:pointer">
+                    <i class="fas fa-plus"></i> Create Group
+                </button>
+                <a href="{{ url_for('group.list_groups') }}" class="btn-secondary" style="flex:1;padding:.75rem;border-radius:10px;font-weight:600;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+</div>
+{% endblock %}

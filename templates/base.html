@@ -58,6 +58,10 @@
         <a href="{{ url_for('admin.reports') }}" class="nav-item {% if request.endpoint == 'admin.reports' %}active{% endif %}">
             <i class="fas fa-chart-bar"></i><span>Reports</span>
         </a>
+        <div class="nav-section-title">Groups &amp; Expenses</div>
+        <a href="{{ url_for('group.admin_all_groups') }}" class="nav-item {% if 'group.' in request.endpoint %}active{% endif %}">
+            <i class="fas fa-users"></i><span>All Groups</span>
+        </a>
         {% else %}
         <div class="nav-section-title">Menu</div>
         <a href="{{ url_for('user.dashboard') }}" class="nav-item {% if request.endpoint == 'user.dashboard' %}active{% endif %}">
@@ -80,6 +84,10 @@
         </a>
         <a href="{{ url_for('user.profile') }}" class="nav-item {% if request.endpoint == 'user.profile' %}active{% endif %}">
             <i class="fas fa-user-circle"></i><span>Profile</span>
+        </a>
+        <div class="nav-section-title">Groups &amp; Expenses</div>
+        <a href="{{ url_for('group.list_groups') }}" class="nav-item {% if 'group.' in request.endpoint %}active{% endif %}">
+            <i class="fas fa-users"></i><span>My Groups</span>
         </a>
         {% endif %}
     </nav>

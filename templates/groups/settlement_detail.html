@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Settlement #{{ s.id }} – {{ group.name }}{% endblock %}
+{% block page_title %}Settlement Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+.proof-img { max-width:100%; border-radius:14px; border:1px solid var(--border); margin-top:1rem; }
+.status-pill {
+    display:inline-flex; align-items:center; gap:.4rem;
+    padding:.35rem .85rem; border-radius:99px; font-size:.82rem; font-weight:700;
+}
+.pill-settled    { background:rgba(34,197,94,.15);  color:#22c55e; }
+.pill-pending    { background:rgba(249,115,22,.15); color:#f97316; }
+.pill-confirmed  { background:rgba(99,102,241,.15); color:#818cf8; }
+.meta-row { display:flex; justify-content:space-between; padding:.6rem 0;
+            border-bottom:1px solid var(--border); font-size:.9rem; }
+.meta-row:last-child { border-bottom:none; }
+.meta-label { color:var(--text-muted); }
+.confirm-box {
+    background:rgba(249,115,22,.07); border:1.5px dashed rgba(249,115,22,.4);
+    border-radius:14px; padding:1.5rem; text-align:center; margin-top:1.2rem;
+}
+.confirm-box p { margin:.5rem 0 1rem; font-size:.9rem; color:var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+<div class="breadcrumb-bar" style="margin-bottom:1.2rem">
+    <a href="{{ url_for('group.list_groups') }}"><i class="fas fa-arrow-left"></i> My Groups</a>
+    <span style="opacity:.4; margin:0 .5rem">/</span>
+    <a href="{{ url_for('group.dashboard', group_id=group.id) }}">{{ group.name }}</a>
+    <span style="opacity:.4; margin:0 .5rem">/</span>
+    <span>Settlement #{{ s.id }}</span>
+</div>
+
+<div class="two-col-grid">
+    <!-- LEFT: Settlement details -->
+    <div class="card" style="padding:1.8rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">
+            <h2 style="margin:0;font-size:1.25rem;font-weight:700">💸 Settlement</h2>
+            {% if s.confirmed_at %}
+            <span class="status-pill pill-confirmed"><i class="fas fa-check-double"></i> Confirmed</span>
+            {% elif s.status == 'pending_confirmation' %}
+            <span class="status-pill pill-pending"><i class="fas fa-clock"></i> Awaiting Confirmation</span>
+            {% else %}
+            <span class="status-pill pill-settled"><i class="fas fa-check"></i> Settled</span>
+            {% endif %}
+        </div>
+
+        <!-- Amount hero -->
+        <div style="text-align:center;padding:1.5rem 0;margin-bottom:1rem;
+                    background:rgba(249,115,22,.06);border-radius:14px">
+            <div style="font-size:2.4rem;font-weight:800;color:var(--accent)">
+                ₹{{ "%.2f"|format(s.amount) }}
+            </div>
+            <div style="margin-top:.35rem;font-size:.9rem;color:var(--text-muted)">
+                Payment from <strong style="color:var(--text-primary)">{{ s.from_name }}</strong>
+                to <strong style="color:var(--text-primary)">{{ s.to_name }}</strong>
+            </div>
+        </div>
+
+        <!-- Meta details -->
+        <div style="margin-bottom:1rem">
+            <div class="meta-row">
+                <span class="meta-label">Group</span>
+                <span>{{ group.name }}</span>
+            </div>
+            <div class="meta-row">
+                <span class="meta-label">Submitted on</span>
+                <span>{{ s.settled_at[:16] if s.settled_at else '—' }}</span>
+            </div>
+            {% if s.note %}
+            <div class="meta-row">
+                <span class="meta-label">Note</span>
+                <span>{{ s.note }}</span>
+            </div>
+            {% endif %}
+            {% if s.confirmed_at %}
+            <div class="meta-row">
+                <span class="meta-label">Confirmed by</span>
+                <span style="color:#22c55e">✅ {{ s.confirmed_by_name }} on {{ s.confirmed_at[:16] }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Proof image (if uploaded) -->
+        {% if s.proof_image %}
+        <div>
+            <div style="font-weight:600;margin-bottom:.5rem">📸 Payment Proof</div>
+            {% set ext = s.proof_image.rsplit('.', 1)[1].lower() if '.' in s.proof_image else '' %}
+            {% if ext in ['png', 'jpg', 'jpeg', 'gif', 'webp'] %}
+            <a href="{{ url_for('static', filename='uploads/' + s.proof_image) }}" target="_blank">
+                <img src="{{ url_for('static', filename='uploads/' + s.proof_image) }}"
+                     class="proof-img" alt="Payment proof">
+            </a>
+            {% else %}
+            <a href="{{ url_for('static', filename='uploads/' + s.proof_image) }}" target="_blank"
+               style="color:var(--accent)">
+                <i class="fas fa-file-alt"></i> View Proof Document
+            </a>
+            {% endif %}
+        </div>
+        {% else %}
+        <div style="padding:.8rem 1rem;border-radius:10px;background:var(--bg-secondary);
+                    font-size:.85rem;color:var(--text-muted);text-align:center">
+            <i class="fas fa-image" style="opacity:.4"></i>
+            No proof image attached — settled via "Done" button
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- RIGHT: Actions -->
+    <div>
+        {% set is_recipient = (s.to_user == session.get('user_id')) %}
+        {% set is_payer     = (s.from_user == session.get('user_id')) %}
+
+        {% if is_recipient and not s.confirmed_at %}
+        <!-- Recipient sees confirm box -->
+        <div class="confirm-box">
+            <div style="font-size:2rem">💳</div>
+            <h3 style="margin:.5rem 0 0;font-size:1.1rem;font-weight:700">
+                Confirm Payment Received
+            </h3>
+            <p>
+                <strong>{{ s.from_name }}</strong> says they paid you
+                <strong>₹{{ "%.2f"|format(s.amount) }}</strong>.
+                {% if s.proof_image %}Check the proof image and confirm if you received it.{% endif %}
+            </p>
+            <form method="POST"
+                  action="{{ url_for('group.confirm_settlement', group_id=group.id, settlement_id=s.id) }}">
+                <button type="submit"
+                        onclick="return confirm('Confirm that you received ₹{{ '%.2f'|format(s.amount) }} from {{ s.from_name }}?')"
+                        style="background:#22c55e;color:#fff;border:none;border-radius:10px;
+                               padding:.8rem 1.8rem;font-size:1rem;font-weight:700;cursor:pointer;
+                               width:100%;transition:opacity .2s">
+                    <i class="fas fa-check-circle"></i> Yes, I Received It!
+                </button>
+            </form>
+            <div style="margin-top:.75rem;font-size:.78rem;color:var(--text-muted)">
+                This will notify {{ s.from_name }} that payment is confirmed.
+            </div>
+        </div>
+
+        {% elif is_recipient and s.confirmed_at %}
+        <div class="card" style="padding:1.5rem;text-align:center">
+            <div style="font-size:2.5rem">✅</div>
+            <h3 style="margin:.5rem 0 .25rem">You confirmed this payment</h3>
+            <p style="color:var(--text-muted);font-size:.85rem;margin:0">
+                {{ s.from_name }} has been notified.
+            </p>
+        </div>
+
+        {% elif is_payer and not s.confirmed_at %}
+        <div class="card" style="padding:1.5rem;text-align:center;border:1px solid rgba(249,115,22,.3)">
+            <div style="font-size:2.5rem">⏳</div>
+            <h3 style="margin:.5rem 0 .25rem;color:#f97316">Waiting for Confirmation</h3>
+            <p style="color:var(--text-muted);font-size:.85rem;margin:0">
+                {{ s.to_name }} has been notified and needs to confirm receipt.
+                You'll get a notification once they confirm.
+            </p>
+        </div>
+
+        {% elif is_payer and s.confirmed_at %}
+        <div class="card" style="padding:1.5rem;text-align:center">
+            <div style="font-size:2.5rem">🎉</div>
+            <h3 style="margin:.5rem 0 .25rem;color:#22c55e">Payment Confirmed!</h3>
+            <p style="color:var(--text-muted);font-size:.85rem;margin:0">
+                {{ s.to_name }} confirmed receipt on {{ s.confirmed_at[:10] }}.
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- Back button -->
+        <div style="margin-top:1rem;text-align:center">
+            <a href="{{ url_for('group.dashboard', group_id=group.id) }}"
+               style="color:var(--accent);font-size:.88rem;font-weight:600;text-decoration:none">
+                <i class="fas fa-arrow-left"></i> Back to {{ group.name }}
+            </a>
+        </div>
+    </div>
+
+</div><!-- /grid -->
+</div><!-- /page-body -->
+{% endblock %}

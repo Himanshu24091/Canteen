@@ -221,13 +221,13 @@ def notifications():
     db = get_db()
     notifs = db.execute(
         """SELECT * FROM notifications
-           WHERE (user_id = ? OR user_id IS NULL)
-           ORDER BY created_at DESC LIMIT 50""",
+           WHERE user_id = %s
+           ORDER BY created_at DESC LIMIT 60""",
         (user_id,)
     ).fetchall()
 
     db.execute(
-        "UPDATE notifications SET is_read = 1 WHERE (user_id = ? OR user_id IS NULL) AND is_read = 0",
+        "UPDATE notifications SET is_read = 1 WHERE user_id = %s AND is_read = 0",
         (user_id,)
     )
     db.commit()
@@ -258,3 +258,104 @@ def profile():
     notif_count = get_unread_notification_count(user_id)
     db.close()
     return render_template('profile.html', user=user, pending=pending, notif_count=notif_count)
+
+
+@user_bp.route('/api/users-list')
+@login_required
+def users_list_api():
+    """Return active non-admin users. Admins only see all users."""
+    db = get_db()
+    is_admin_req = session.get('role') == 'admin'
+    if is_admin_req:
+        users = db.execute(
+            "SELECT id, name, email FROM users WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+    else:
+        # Normal users cannot see admin accounts at all
+        users = db.execute(
+            "SELECT id, name, email FROM users WHERE is_active = 1 AND role != 'admin' ORDER BY name"
+        ).fetchall()
+    db.close()
+    return jsonify({'users': users})
+
+
+@user_bp.route('/api/search-users')
+@login_required
+def search_users():
+    """
+    Privacy-safe user search: never returns full list, only matches.
+    Normal users cannot find admin accounts.
+    Excludes current user and already-existing group members.
+    Searchable by: name, email prefix, or exact numeric user ID.
+    """
+    q = request.args.get('q', '').strip()
+    group_id = request.args.get('group_id', type=int)
+
+    # Require at least 1 character — prevents "dump everything" calls
+    if not q:
+        return jsonify({'users': []})
+
+    db = get_db()
+    is_admin_req = session.get('role') == 'admin'
+    current_user_id = session['user_id']
+
+    params = []
+
+    # Try numeric ID exact match
+    id_match = None
+    try:
+        id_match = int(q)
+    except (ValueError, TypeError):
+        pass
+
+    if id_match is not None:
+        sql = """
+            SELECT id, name, email, department, role
+            FROM users
+            WHERE is_active = 1
+              AND (name ILIKE %s OR email ILIKE %s OR id = %s)
+        """
+        params = [f'%{q}%', f'%{q}%', id_match]
+    else:
+        sql = """
+            SELECT id, name, email, department, role
+            FROM users
+            WHERE is_active = 1
+              AND (name ILIKE %s OR email ILIKE %s)
+        """
+        params = [f'%{q}%', f'%{q}%']
+
+    # Normal users must not see admin accounts
+    if not is_admin_req:
+        sql += " AND role != 'admin'"
+
+    # Never show the current user to themselves
+    sql += " AND id != %s"
+    params.append(current_user_id)
+
+    sql += " ORDER BY name LIMIT 10"
+
+    users = db.execute(sql, params).fetchall()
+
+    # Exclude existing group members (if group context provided)
+    if group_id:
+        existing = db.execute(
+            "SELECT user_id FROM group_members WHERE group_id = %s", (group_id,)
+        ).fetchall()
+        existing_ids = {r['user_id'] for r in existing}
+        users = [u for u in users if u['id'] not in existing_ids]
+
+    db.close()
+
+    # Return only safe, non-sensitive fields
+    return jsonify({'users': [
+        {
+            'id': u['id'],
+            'name': u['name'],
+            'email': u['email'],
+            'department': u.get('department') or ''
+        }
+        for u in users
+    ]})
+
+

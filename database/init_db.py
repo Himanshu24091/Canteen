@@ -83,6 +83,77 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS groups (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_by INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+    id SERIAL PRIMARY KEY,
+    group_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id SERIAL PRIMARY KEY,
+    group_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    total_amount REAL NOT NULL,
+    paid_by INTEGER NOT NULL,
+    split_type TEXT NOT NULL DEFAULT 'equal',
+    note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (paid_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS expense_participants (
+    id SERIAL PRIMARY KEY,
+    expense_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    amount_owed REAL NOT NULL DEFAULT 0,
+    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS settlements (
+    id SERIAL PRIMARY KEY,
+    group_id INTEGER NOT NULL,
+    from_user INTEGER NOT NULL,
+    to_user INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    note TEXT,
+    proof_image TEXT,
+    confirmed_at TIMESTAMP,
+    confirmed_by INTEGER,
+    settled_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (from_user) REFERENCES users(id),
+    FOREIGN KEY (to_user) REFERENCES users(id),
+    FOREIGN KEY (confirmed_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id SERIAL PRIMARY KEY,
+    group_id INTEGER NOT NULL,
+    sender_id INTEGER,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'user',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_id) REFERENCES users(id)
+);
 """.strip().split(';') if s.strip()]
 
     for stmt in statements:
@@ -120,6 +191,31 @@ CREATE TABLE IF NOT EXISTS notifications (
         )
 
     conn.commit()
+
+    # ── Safe column migrations (run every startup, idempotent) ──────────────
+    safe_alters = [
+        # notifications: link for deep-linking
+        "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link TEXT",
+        # settlements: proof and confirmation fields
+        "ALTER TABLE settlements ADD COLUMN IF NOT EXISTS note TEXT",
+        "ALTER TABLE settlements ADD COLUMN IF NOT EXISTS proof_image TEXT",
+        "ALTER TABLE settlements ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMP",
+        "ALTER TABLE settlements ADD COLUMN IF NOT EXISTS confirmed_by INTEGER",
+        # E2EE: user RSA public key
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT",
+        # E2EE: per-member encrypted group AES key
+        "ALTER TABLE group_members ADD COLUMN IF NOT EXISTS encrypted_group_key TEXT",
+        # E2EE: per-message IV + encrypted flag
+        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS iv TEXT",
+        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_encrypted BOOLEAN DEFAULT FALSE",
+    ]
+    for alt in safe_alters:
+        try:
+            cur.execute(alt)
+        except Exception:
+            pass
+    conn.commit()
+
     cur.close()
     conn.close()
     print("[OK] PostgreSQL database initialized successfully!")

@@ -1,24 +1,80 @@
 {% extends 'base.html' %}
 {% block title %}Notifications{% endblock %}
 {% block page_title %}Notifications{% endblock %}
+
+{% block extra_css %}
+<style>
+.notif-item {
+    display:flex; gap:1rem; padding:1rem 1.2rem;
+    border-radius:14px; margin-bottom:.65rem;
+    background:var(--bg-card); border:1px solid var(--border);
+    transition:border-color .2s, background .2s; text-decoration:none; color:inherit;
+}
+a.notif-item:hover { border-color:var(--accent); background:var(--bg-glass); }
+.notif-item.unread { border-left:3px solid var(--accent); }
+.notif-icon {
+    width:40px; height:40px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:1rem;
+}
+.notif-expense-type { background:rgba(249,115,22,.15); color:#f97316; }
+.notif-payment-type { background:rgba(99,102,241,.15);  color:#818cf8; }
+.notif-success-type { background:rgba(34,197,94,.15);   color:#22c55e; }
+.notif-warning-type { background:rgba(245,158,11,.15);  color:#f59e0b; }
+.notif-info-type    { background:rgba(59,130,246,.15);  color:#60a5fa; }
+.notif-body   { flex:1; min-width:0; }
+.notif-title  { font-weight:700; font-size:.92rem; margin-bottom:.2rem; }
+.notif-msg    { font-size:.83rem; color:var(--text-muted); line-height:1.4; }
+.notif-time   { font-size:.74rem; color:var(--text-muted); margin-top:.3rem; }
+.notif-link-badge {
+    display:inline-block; margin-left:.4rem; font-size:.72rem;
+    color:var(--accent); font-weight:600;
+}
+.unread-dot {
+    width:8px; height:8px; border-radius:50%; background:var(--accent);
+    flex-shrink:0; margin-top:.4rem;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-body">
-  <div class="page-header">
+  <div class="page-header" style="margin-bottom:1.2rem">
     <h1 class="page-header-title">🔔 Notifications</h1>
   </div>
+
   {% if notifications %}
     {% for n in notifications %}
+    {% if n.link %}
+    <a href="{{ n.link }}" class="notif-item {% if not n.is_read %}unread{% endif %}">
+    {% else %}
     <div class="notif-item {% if not n.is_read %}unread{% endif %}">
+    {% endif %}
+
       <div class="notif-icon notif-{{ n.type }}-type">
-        <i class="fas fa-{% if n.type == 'success' %}check{% elif n.type == 'warning' %}exclamation{% else %}bell{% endif %}"></i>
+        <i class="fas fa-{% if n.type == 'expense' %}receipt
+                          {% elif n.type == 'payment' %}money-bill-wave
+                          {% elif n.type == 'success' %}check-circle
+                          {% elif n.type == 'warning' %}exclamation-triangle
+                          {% else %}bell{% endif %}"></i>
       </div>
+
       <div class="notif-body">
-        <div class="notif-title">{{ n.title }}</div>
+        <div class="notif-title">
+          {{ n.title }}
+          {% if n.link %}<span class="notif-link-badge">↗ View</span>{% endif %}
+        </div>
         <div class="notif-msg">{{ n.message }}</div>
-        <div class="notif-time"><i class="fas fa-clock"></i> {{ n.created_at[:16] }}</div>
+        <div class="notif-time">
+          <i class="fas fa-clock"></i> {{ n.created_at[:16] }}
+          {% if not n.is_read %}<span style="margin-left:.5rem;color:var(--accent);font-size:.73rem;font-weight:700">● NEW</span>{% endif %}
+        </div>
       </div>
-    </div>
+
+      {% if not n.is_read %}<div class="unread-dot"></div>{% endif %}
+
+    {% if n.link %}</a>{% else %}</div>{% endif %}
     {% endfor %}
+
   {% else %}
   <div class="empty-state">
     <div class="empty-state-icon">🔔</div>

@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} – Dashboard{% endblock %}
+{% block page_title %}{{ group.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.balance-card { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.2rem; border-radius:12px; margin-bottom:.75rem; }
+.balance-owe  { background:rgba(239,68,68,.12); border-left:4px solid #ef4444; }
+.balance-recv { background:rgba(34,197,94,.12);  border-left:4px solid #22c55e; }
+.balance-amount { font-size:1.15rem; font-weight:700; }
+.balance-owe  .balance-amount { color:#ef4444; }
+.balance-recv .balance-amount { color:#22c55e; }
+.settle-btn { padding:.35rem .9rem; border-radius:8px; font-size:.82rem; font-weight:600; background:var(--accent); color:#fff; border:none; cursor:pointer; }
+
+/* ── Member search UI ── */
+.ms-wrap { position:relative; }
+.ms-input {
+    width:100%; padding:.65rem .9rem; border-radius:10px;
+    background:var(--bg-secondary); border:1px solid var(--border);
+    color:var(--text-primary); font-size:.88rem; outline:none;
+    transition:border-color .2s; box-sizing:border-box;
+}
+.ms-input:focus { border-color:var(--accent); }
+.ms-input::placeholder { color:var(--text-muted); }
+.ms-hint { font-size:.75rem; color:var(--text-muted); margin:.35rem 0 0 .25rem; }
+
+.ms-dropdown {
+    display:none; position:absolute; top:calc(100% + 6px); left:0; right:0;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+    max-height:260px; overflow-y:auto; z-index:60;
+    box-shadow:0 8px 32px rgba(0,0,0,.35);
+}
+.ms-dropdown.open { display:block; }
+.ms-item {
+    display:flex; align-items:center; gap:.75rem; padding:.65rem .9rem;
+    cursor:pointer; transition:background .15s; border-radius:8px; margin:.2rem .3rem;
+}
+.ms-item:hover  { background:var(--bg-glass); }
+.ms-item.sel    { background:rgba(249,115,22,.1); }
+.ms-item-av {
+    width:34px; height:34px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,var(--accent),var(--purple));
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:700; font-size:.88rem;
+}
+.ms-item-info { flex:1; min-width:0; }
+.ms-item-name { font-size:.88rem; font-weight:600; }
+.ms-item-sub  { font-size:.74rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ms-check { color:#22c55e; font-size:.9rem; flex-shrink:0; }
+.ms-no-result { padding:1rem; text-align:center; font-size:.85rem; color:var(--text-muted); }
+
+/* Chips */
+.chips-area { display:flex; flex-wrap:wrap; gap:.45rem; min-height:28px; margin:.65rem 0 .5rem; align-items:center; }
+.chip {
+    display:inline-flex; align-items:center; gap:.35rem;
+    padding:.28rem .55rem .28rem .4rem;
+    background:rgba(249,115,22,.13); border:1px solid rgba(249,115,22,.3);
+    border-radius:99px; font-size:.8rem; font-weight:600; color:var(--text-primary);
+}
+.chip-av {
+    width:18px; height:18px; border-radius:50%; background:var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:.65rem; font-weight:700; flex-shrink:0;
+}
+.chip-x { background:none; border:none; color:rgba(249,115,22,.7); cursor:pointer; font-size:1rem; line-height:1; padding:0; }
+.chip-x:hover { color:var(--accent); }
+.chips-empty { font-size:.8rem; color:var(--text-muted); }
+
+/* ── Settle Modal ── */
+.modal-backdrop {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.65);
+    z-index:900; align-items:center; justify-content:center;
+    backdrop-filter:blur(4px);
+}
+.modal-backdrop.open { display:flex; }
+.modal-box {
+    background:var(--bg-card); border:1px solid var(--border);
+    border-radius:18px; padding:2rem; max-width:460px; width:92%;
+    box-shadow:0 24px 64px rgba(0,0,0,.5); animation:slideUp .25s ease;
+}
+@keyframes slideUp { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+.modal-title { font-size:1.15rem; font-weight:700; margin:0 0 .2rem; }
+.modal-sub   { font-size:.84rem; color:var(--text-muted); margin:0 0 1.2rem; }
+.proof-drop {
+    border:2px dashed var(--border); border-radius:12px;
+    padding:1.2rem; text-align:center; cursor:pointer;
+    transition:border-color .2s; position:relative;
+}
+.proof-drop:hover, .proof-drop.drag { border-color:var(--accent); }
+.proof-drop input[type=file] { display:none; }
+.proof-drop .preview-img {
+    max-height:140px; border-radius:8px; margin-top:.75rem; object-fit:cover;
+}
+.modal-actions { display:flex; gap:.6rem; margin-top:1.2rem; }
+.btn-cancel { flex:1;padding:.7rem;border-radius:10px;border:1px solid var(--border);
+    background:none;color:var(--text-primary);cursor:pointer;font-weight:600;font-size:.9rem; }
+.btn-pay    { flex:2;padding:.7rem;border-radius:10px;border:none;
+    background:var(--accent);color:#fff;cursor:pointer;font-weight:700;font-size:.9rem;
+    display:flex;align-items:center;justify-content:center;gap:.4rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+<!-- Data bridge: Jinja → JS via data attributes (avoids IDE lint errors) -->
+<span id="groupData" data-group-id="{{ group.id }}" style="display:none"></span>
+
+<div class="breadcrumb-bar" style="margin-bottom:1.2rem">
+    <a href="{{ url_for('group.list_groups') }}"><i class="fas fa-arrow-left"></i> My Groups</a>
+    <span style="opacity:.4; margin:0 .5rem">/</span>
+    <span>{{ group.name }}</span>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar" style="margin-bottom:1.5rem">
+    <a href="{{ url_for('group.dashboard', group_id=group.id) }}" class="tab-btn tab-active">
+        <i class="fas fa-chart-pie"></i> Dashboard
+    </a>
+    <a href="{{ url_for('group.add_expense', group_id=group.id) }}" class="tab-btn">
+        <i class="fas fa-plus-circle"></i> Add Expense
+    </a>
+    <a href="{{ url_for('group.activity_feed', group_id=group.id) }}" class="tab-btn">
+        <i class="fas fa-comments"></i> Activity Feed
+    </a>
+</div>
+
+<div class="two-col-grid">
+
+    <!-- ── LEFT: Balances + Recent Expenses ── -->
+    <div>
+        <!-- Balance Summary -->
+        <div class="card" style="padding:1.5rem;margin-bottom:1.2rem">
+            <h3 style="margin:0 0 1rem;font-size:1.1rem;font-weight:700">💳 Your Balances</h3>
+            {% if balances %}
+                {% for b in balances %}
+                <div class="balance-card balance-{{ 'owe' if b.direction == 'owe' else 'recv' }}">
+                    <div style="flex:1">
+                        <div style="font-weight:600">{{ b.person }}</div>
+                        <div style="font-size:.82rem;opacity:.6">
+                            {% if b.direction == 'owe' %}You owe{% else %}Owes you{% endif %}
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:.75rem">
+                        <span class="balance-amount">₹{{ "%.2f"|format(b.amount) }}</span>
+                        {% if b.direction == 'owe' %}
+                        <button class="settle-btn"
+                                data-uid="{{ b.person_id }}"
+                                data-name="{{ b.person | e }}"
+                                data-amount="{{ '%.2f'|format(b.amount) }}"
+                                onclick="openSettleModal(this.dataset.uid, this.dataset.name, this.dataset.amount)"
+                                title="Pay {{ b.person | e }}">
+                            Pay Now
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align:center;padding:1.5rem 0;opacity:.5">
+                    <i class="fas fa-check-circle" style="font-size:2rem;color:#22c55e"></i>
+                    <p style="margin:.5rem 0 0">All settled up! 🎉</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Recent Expenses -->
+        <div class="card" style="padding:1.5rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+                <h3 style="margin:0;font-size:1.1rem;font-weight:700">🧾 Recent Expenses</h3>
+                <a href="{{ url_for('group.add_expense', group_id=group.id) }}"
+                   style="font-size:.85rem;font-weight:600;color:var(--accent);text-decoration:none">
+                    + Add New
+                </a>
+            </div>
+            {% if expenses %}
+            <div class="expense-list">
+                {% for e in expenses %}
+                <a href="{{ url_for('group.expense_detail', group_id=group.id, expense_id=e.id) }}" class="expense-row">
+                    <div>
+                        <div class="expense-title">{{ e.title }}</div>
+                        <div class="expense-sub">Paid by {{ e.paid_by_name }} · {{ e.split_type|title }} split · {{ e.created_at[:10] }}</div>
+                    </div>
+                    <div class="expense-amount">₹{{ "%.2f"|format(e.total_amount) }}</div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align:center;padding:1.5rem 0;opacity:.5">No expenses yet</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── RIGHT: Members + Add Members ── -->
+    <div>
+        <!-- Members list -->
+        <div class="card" style="padding:1.5rem;margin-bottom:1.2rem">
+            <h3 style="margin:0 0 1rem;font-size:1.1rem;font-weight:700">👥 Members ({{ members|length }})</h3>
+            <div class="member-list">
+                {% for m in members %}
+                <div class="member-row">
+                    <div class="member-avatar">{{ m.name[0].upper() }}</div>
+                    <div class="member-info">
+                        <div class="member-name">{{ m.name }}</div>
+                        <div class="member-dept">{{ m.department or m.email }}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:.5rem">
+                        <span class="role-badge role-{{ m.role }}">{{ m.role|title }}</span>
+                        {% if membership.role == 'admin' and m.user_id != session.get('user_id') %}
+                        <form method="POST"
+                              action="{{ url_for('group.remove_member', group_id=group.id, target_user_id=m.user_id) }}"
+                              style="display:inline">
+                            <button type="submit" class="btn-icon-danger" title="Remove"
+                                    onclick="return confirm('Remove {{ m.name }} from group?')">
+                                <i class="fas fa-user-minus"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if membership.role == 'admin' %}
+        <!-- ── Add Members – search-based multi-select ── -->
+        <div class="card" style="padding:1.5rem;margin-bottom:1.2rem">
+            <h3 style="margin:0 0 .9rem;font-size:1.1rem;font-weight:700">➕ Add Members</h3>
+
+            <div class="ms-wrap" id="msWrap">
+                <input type="text" id="msInput" class="ms-input"
+                       placeholder="Search by name, email or user ID…"
+                       autocomplete="off" spellcheck="false">
+                <p class="ms-hint">
+                    <i class="fas fa-shield-alt" style="color:var(--accent)"></i>
+                    Results appear only when you search — full list is never exposed
+                </p>
+                <div class="ms-dropdown" id="msDropdown"></div>
+            </div>
+
+            <!-- Selected chips -->
+            <div class="chips-area" id="chipsArea">
+                <span class="chips-empty">No users selected yet</span>
+            </div>
+
+            <!-- Role + submit row -->
+            <div style="display:flex;gap:.65rem;margin-top:.3rem">
+                <select id="newMemberRole" class="form-control" style="flex:1;font-size:.85rem">
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <button id="addMembersBtn" onclick="submitAddMembers()"
+                        style="padding:.65rem 1.1rem;border-radius:10px;border:none;cursor:pointer;
+                               font-weight:600;white-space:nowrap;background:var(--accent);color:#fff;
+                               opacity:.45;pointer-events:none;transition:opacity .2s">
+                    <i class="fas fa-user-plus"></i> Add
+                </button>
+            </div>
+            <div id="addMembersMsg" style="margin-top:.6rem;font-size:.82rem;min-height:1.1rem"></div>
+        </div>
+        {% endif %}
+
+        <!-- Danger Zone -->
+        {% if group.created_by == session.get('user_id') or session.get('role') == 'admin' %}
+        <div class="card" style="padding:1.5rem;border:1px solid rgba(239,68,68,.3)">
+            <h3 style="margin:0 0 .75rem;font-size:1rem;font-weight:700;color:#ef4444">⚠ Danger Zone</h3>
+            <form method="POST" action="{{ url_for('group.delete_group', group_id=group.id) }}">
+                <button type="submit"
+                        style="background:#ef4444;color:#fff;border:none;border-radius:8px;
+                               padding:.6rem 1.2rem;cursor:pointer;font-weight:600;width:100%"
+                        onclick="return confirm('Delete group permanently? This cannot be undone.')">
+                    <i class="fas fa-trash"></i> Delete Group
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div><!-- /right col -->
+
+</div><!-- /two-col-grid -->
+</div><!-- /page-body -->
+{% endblock %}
+
+{% block extra_js %}
+<!-- Settle Payment Modal -->
+<div class="modal-backdrop" id="settleModal">
+  <div class="modal-box">
+    <div class="modal-title">💸 Pay <span id="smPersonName"></span></div>
+    <div class="modal-sub">Amount: <strong id="smAmount"></strong></div>
+
+    <form id="settleForm" method="POST"
+          action=""
+          enctype="multipart/form-data">
+        <input type="hidden" name="to_user_id" id="smUserId">
+        <input type="hidden" name="amount"     id="smAmountField">
+
+        <!-- Optional note -->
+        <div style="margin-bottom:.85rem">
+            <label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:.3rem">
+                Note <span style="opacity:.5">(optional)</span>
+            </label>
+            <input type="text" name="settle_note" class="ms-input"
+                   placeholder="e.g. Paid via UPI, cash, bank transfer…">
+        </div>
+
+        <!-- Proof upload drop zone -->
+        <label class="proof-drop" id="proofDrop">
+            <input type="file" name="proof_image" id="proofInput"
+                   accept="image/*,.pdf" onchange="previewProof(event)">
+            <div id="proofPlaceholder">
+                <i class="fas fa-camera" style="font-size:1.5rem;opacity:.45"></i>
+                <div style="margin-top:.4rem;font-size:.83rem;color:var(--text-muted)">
+                    <strong style="color:var(--accent)">Upload screenshot</strong> or drag &amp; drop<br>
+                    <span style="font-size:.75rem">(optional — PNG, JPG, PDF, max 2 MB)</span>
+                </div>
+            </div>
+            <img id="proofPreview" class="preview-img" style="display:none" alt="preview">
+        </label>
+
+        <!-- Buttons -->
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel" onclick="closeSettleModal()">
+                Cancel
+            </button>
+            <button type="submit" class="btn-pay" id="smDoneBtn">
+                <i class="fas fa-check-circle"></i>
+                <span id="smBtnLabel">Mark as Done</span>
+            </button>
+        </div>
+    </form>
+    <div style="margin-top:.65rem;font-size:.76rem;color:var(--text-muted);text-align:center">
+        The recipient will be notified and asked to confirm receipt.
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Settle modal ────────────────────────────────────────────────────────────
+const GROUP_ID_S = parseInt(document.getElementById('groupData').dataset.groupId, 10);
+const settleModal = document.getElementById('settleModal');
+
+function openSettleModal(userId, name, amount) {
+    document.getElementById('smPersonName').textContent  = name;
+    document.getElementById('smAmount').textContent      = '₹' + amount;
+    document.getElementById('smUserId').value            = userId;
+    document.getElementById('smAmountField').value       = amount;
+    document.getElementById('settleForm').action         =
+        `/groups/${GROUP_ID_S}/settle`;
+    // reset proof
+    document.getElementById('proofInput').value   = '';
+    document.getElementById('proofPreview').style.display = 'none';
+    document.getElementById('proofPlaceholder').style.display = 'block';
+    document.getElementById('smBtnLabel').textContent = 'Mark as Done';
+    settleModal.classList.add('open');
+}
+
+function closeSettleModal() {
+    settleModal.classList.remove('open');
+}
+
+function previewProof(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const preview = document.getElementById('proofPreview');
+    const placeholder = document.getElementById('proofPlaceholder');
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+            preview.src = ev.target.result;
+            preview.style.display = 'block';
+            placeholder.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        placeholder.innerHTML = `<i class="fas fa-file-alt" style="font-size:1.5rem;color:var(--accent)"></i>
+            <div style="margin-top:.4rem;font-size:.83rem">${file.name}</div>`;
+    }
+    document.getElementById('smBtnLabel').textContent = 'Send Proof & Done';
+}
+
+// Drag-and-drop on proof zone
+const proofDrop = document.getElementById('proofDrop');
+if (proofDrop) {
+    proofDrop.addEventListener('dragover', e => { e.preventDefault(); proofDrop.classList.add('drag'); });
+    proofDrop.addEventListener('dragleave', () => proofDrop.classList.remove('drag'));
+    proofDrop.addEventListener('drop', e => {
+        e.preventDefault();
+        proofDrop.classList.remove('drag');
+        const dt = e.dataTransfer;
+        if (dt.files.length) {
+            document.getElementById('proofInput').files = dt.files;
+            previewProof({ target: { files: dt.files } });
+        }
+    });
+}
+
+// Close modal on backdrop click
+settleModal.addEventListener('click', e => {
+    if (e.target === settleModal) closeSettleModal();
+});
+
+// ── Constants & state ───────────────────────────────────────────────────────
+const GROUP_ID    = parseInt(document.getElementById('groupData').dataset.groupId, 10);
+let   selectedMap = {};   // { uid: {id, name, email} }
+let   debTimer    = null;
+
+// ── Elements ────────────────────────────────────────────────────────────────
+const msInput    = document.getElementById('msInput');
+const msDropdown = document.getElementById('msDropdown');
+const chipsArea  = document.getElementById('chipsArea');
+const addBtn     = document.getElementById('addMembersBtn');
+const addMsg     = document.getElementById('addMembersMsg');
+
+if (msInput) {
+    msInput.addEventListener('input', () => {
+        clearTimeout(debTimer);
+        const q = msInput.value.trim();
+        if (!q) { closeDD(); return; }
+        debTimer = setTimeout(() => doSearch(q), 300);
+    });
+    msInput.addEventListener('keydown', e => { if (e.key === 'Escape') closeDD(); });
+    document.addEventListener('click', e => {
+        if (!document.getElementById('msWrap').contains(e.target)) closeDD();
+    });
+}
+
+async function doSearch(q) {
+    msDropdown.innerHTML = '<div class="ms-no-result"><i class="fas fa-circle-notch fa-spin"></i></div>';
+    msDropdown.classList.add('open');
+    try {
+        const r = await fetch(`/api/search-users?q=${encodeURIComponent(q)}&group_id=${GROUP_ID}`);
+        renderDD((await r.json()).users || []);
+    } catch {
+        msDropdown.innerHTML = '<div class="ms-no-result" style="color:#ef4444">Search error</div>';
+    }
+}
+
+function renderDD(users) {
+    if (!users.length) {
+        msDropdown.innerHTML = '<div class="ms-no-result">No matching users found</div>';
+        return;
+    }
+    msDropdown.innerHTML = users.map(u => {
+        const picked = !!selectedMap[u.id];
+        return `<div class="ms-item${picked ? ' sel' : ''}" onclick="toggle(${u.id},'${x(u.name)}','${x(u.email)}')">
+            <div class="ms-item-av">${u.name[0].toUpperCase()}</div>
+            <div class="ms-item-info">
+                <div class="ms-item-name">${x(u.name)}</div>
+                <div class="ms-item-sub">${x(u.email)}${u.department ? ' · ' + x(u.department) : ''}</div>
+            </div>
+            ${picked ? '<i class="fas fa-check-circle ms-check"></i>' : ''}
+        </div>`;
+    }).join('');
+}
+
+function closeDD() { msDropdown.classList.remove('open'); msDropdown.innerHTML = ''; }
+
+function toggle(id, name, email) {
+    if (selectedMap[id]) delete selectedMap[id];
+    else selectedMap[id] = { id, name, email };
+    renderChips();
+    const q = msInput.value.trim();
+    if (q) doSearch(q);   // refresh checkmarks
+}
+
+function removeChip(id) { delete selectedMap[id]; renderChips(); }
+
+function renderChips() {
+    const ids = Object.keys(selectedMap);
+    if (!ids.length) {
+        chipsArea.innerHTML = '<span class="chips-empty">No users selected yet</span>';
+        addBtn.style.opacity = '.45';
+        addBtn.style.pointerEvents = 'none';
+    } else {
+        chipsArea.innerHTML = ids.map(id => {
+            const u = selectedMap[id];
+            return `<div class="chip">
+                <div class="chip-av">${u.name[0].toUpperCase()}</div>
+                <span>${x(u.name)}</span>
+                <button class="chip-x" onclick="removeChip(${id})" title="Remove">×</button>
+            </div>`;
+        }).join('');
+        addBtn.style.opacity = '1';
+        addBtn.style.pointerEvents = 'auto';
+    }
+}
+
+async function submitAddMembers() {
+    const ids  = Object.keys(selectedMap).map(Number);
+    if (!ids.length) return;
+    const role = document.getElementById('newMemberRole').value;
+
+    addBtn.disabled = true;
+    addBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+    addMsg.textContent = '';
+
+    try {
+        const res  = await fetch(`/groups/${GROUP_ID}/add-members`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_ids: ids, role })
+        });
+        const data = await res.json();
+        if (data.success) {
+            addMsg.style.color = '#22c55e';
+            addMsg.textContent = `✓ Added: ${data.added.join(', ')}`;
+            setTimeout(() => location.reload(), 900);
+        } else {
+            addMsg.style.color = '#ef4444';
+            addMsg.textContent = data.error || 'Could not add members.';
+            addBtn.disabled = false;
+            addBtn.innerHTML = '<i class="fas fa-user-plus"></i> Add';
+        }
+    } catch {
+        addMsg.style.color = '#ef4444';
+        addMsg.textContent = 'Network error – please try again.';
+        addBtn.disabled = false;
+        addBtn.innerHTML = '<i class="fas fa-user-plus"></i> Add';
+    }
+}
+
+// Safe HTML escape
+function x(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

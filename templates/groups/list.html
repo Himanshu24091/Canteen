@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}My Groups{% endblock %}
+{% block page_title %}My Groups{% endblock %}
+
+{% block content %}
+<div class="page-body">
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+    <div>
+        <h1 style="margin:0;font-size:1.6rem;font-weight:700">👥 My Groups</h1>
+        <p style="margin:.3rem 0 0;opacity:.6">Track shared expenses with friends &amp; colleagues</p>
+    </div>
+    <a href="{{ url_for('group.create_group') }}" class="btn-primary" style="display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.2rem;border-radius:10px;font-weight:600;text-decoration:none">
+        <i class="fas fa-plus"></i> New Group
+    </a>
+</div>
+
+{% if groups %}
+<div class="groups-grid">
+    {% for g in groups %}
+    <div class="group-card card-hover">
+        <div class="group-card-header">
+            <div class="group-avatar">{{ g.name[0].upper() }}</div>
+            <div class="group-meta">
+                <div class="group-name">{{ g.name }}</div>
+                <div class="group-sub">Created by {{ g.creator_name }}</div>
+            </div>
+        </div>
+        {% if g.description %}
+        <p class="group-desc">{{ g.description }}</p>
+        {% endif %}
+        <div class="group-stats">
+            <span><i class="fas fa-users"></i> {{ g.member_count }} member{{ 's' if g.member_count != 1 }}</span>
+            <span><i class="fas fa-calendar"></i> {{ g.created_at[:10] }}</span>
+        </div>
+        <div class="group-actions">
+            <a href="{{ url_for('group.dashboard', group_id=g.id) }}" class="btn-sm btn-primary-outline">
+                <i class="fas fa-chart-pie"></i> Dashboard
+            </a>
+            <a href="{{ url_for('group.activity_feed', group_id=g.id) }}" class="btn-sm btn-secondary-outline">
+                <i class="fas fa-comments"></i> Feed
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon"><i class="fas fa-users-slash"></i></div>
+    <h3>No groups yet</h3>
+    <p>Create your first group to start tracking shared expenses.</p>
+    <a href="{{ url_for('group.create_group') }}" class="btn-primary" style="display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.4rem;border-radius:10px;font-weight:600;text-decoration:none;margin-top:1rem">
+        <i class="fas fa-plus"></i> Create Group
+    </a>
+</div>
+{% endif %}
+</div>
+{% endblock %}

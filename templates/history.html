@@ -166,7 +166,7 @@ const cfg = {
     },
     scales: {
       x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } },
-      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b949e', callback: v => '₹'+v } }
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b949e', callback: v => '₹' + Number(v).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2}) } }
     }
   }
 };

@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}All Groups – Admin{% endblock %}
+{% block page_title %}Admin: All Groups{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Search bar ── */
+.ag-toolbar {
+    display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;
+    margin-bottom:1.2rem;
+}
+.ag-search-wrap {
+    position:relative; flex:1; min-width:200px;
+}
+.ag-search-wrap i {
+    position:absolute; left:.85rem; top:50%; transform:translateY(-50%);
+    color:var(--text-muted); font-size:.9rem; pointer-events:none;
+}
+.ag-search-input {
+    width:100%; padding:.65rem 1rem .65rem 2.4rem;
+    background:var(--bg-card); border:1px solid var(--border);
+    border-radius:10px; color:var(--text-primary); font-size:.9rem;
+    outline:none; transition:border-color .2s;
+    box-sizing:border-box;
+}
+.ag-search-input:focus { border-color:var(--accent); }
+.ag-search-input::placeholder { color:var(--text-muted); }
+
+.ag-id-wrap {
+    display:flex; gap:.45rem; align-items:center;
+}
+.ag-id-input {
+    width:110px; padding:.65rem .85rem;
+    background:var(--bg-card); border:1px solid var(--border);
+    border-radius:10px; color:var(--text-primary); font-size:.9rem;
+    outline:none; transition:border-color .2s;
+}
+.ag-id-input:focus { border-color:var(--accent); }
+.ag-id-input::placeholder { color:var(--text-muted); font-size:.82rem; }
+.ag-id-btn {
+    padding:.65rem 1.1rem; border-radius:10px; border:none;
+    background:var(--accent); color:#fff; font-weight:700;
+    cursor:pointer; font-size:.88rem; white-space:nowrap;
+    display:flex; align-items:center; gap:.4rem; transition:opacity .2s;
+}
+.ag-id-btn:hover { opacity:.88; }
+.ag-id-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+.ag-count {
+    font-size:.82rem; color:var(--text-muted); white-space:nowrap;
+    background:var(--bg-secondary); padding:.4rem .75rem;
+    border-radius:8px; border:1px solid var(--border);
+}
+.ag-count strong { color:var(--accent); }
+
+/* highlight matched text */
+mark { background:rgba(249,115,22,.25); color:var(--text-primary); border-radius:3px; padding:0 2px; }
+
+/* row hide/show */
+tr.ag-hidden { display:none; }
+
+/* jump to row flash */
+@keyframes rowPulse {
+    0%,100% { background:transparent; }
+    30%      { background:rgba(249,115,22,.18); }
+}
+tr.ag-pulse { animation:rowPulse .8s ease; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-body">
+
+<div class="page-header" style="margin-bottom:1rem">
+    <h1 style="margin:0;font-size:1.6rem;font-weight:700">🛡 All Groups</h1>
+    <p style="margin:.3rem 0 0;opacity:.6">Monitor all groups, expenses, and activity</p>
+</div>
+
+<!-- ── Toolbar ── -->
+<div class="ag-toolbar">
+    <!-- Live filter: search by name / creator -->
+    <div class="ag-search-wrap">
+        <i class="fas fa-search"></i>
+        <input id="agSearch" class="ag-search-input"
+               type="text" placeholder="Search by group name or creator…"
+               autocomplete="off">
+    </div>
+
+    <!-- Direct jump by Group ID -->
+    <div class="ag-id-wrap">
+        <input id="agIdInput" class="ag-id-input"
+               type="number" min="1" placeholder="Group ID…"
+               autocomplete="off">
+        <button id="agIdBtn" class="ag-id-btn" onclick="jumpToId()">
+            <i class="fas fa-hashtag"></i> Go to ID
+        </button>
+    </div>
+
+    <!-- Result count pill -->
+    <div class="ag-count" id="agCount">
+        Showing <strong id="agVisible">{{ groups|length }}</strong>
+        of {{ groups|length }} groups
+    </div>
+</div>
+
+<!-- Error/info message for ID jump -->
+<div id="agIdMsg" style="margin-bottom:.8rem;font-size:.85rem;min-height:1.2rem"></div>
+
+<!-- ── Groups Table ── -->
+<div class="card" style="overflow:auto">
+    <table class="data-table" style="width:100%;border-collapse:collapse" id="agTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Group Name</th>
+                <th>Created By</th>
+                <th>Members</th>
+                <th>Expenses</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="agTbody">
+            {% for g in groups %}
+            <tr data-id="{{ g.id }}"
+                data-name="{{ g.name | lower }}"
+                data-creator="{{ g.creator_name | lower }}">
+                <td><strong>#{{ g.id }}</strong></td>
+                <td>
+                    <strong class="ag-cell-name">{{ g.name }}</strong>
+                    {% if g.description %}
+                    <br><small style="opacity:.5">{{ g.description[:50] }}</small>
+                    {% endif %}
+                </td>
+                <td class="ag-cell-creator">{{ g.creator_name }}</td>
+                <td>{{ g.member_count }}</td>
+                <td>
+                    {% if g.expense_count %}
+                    <span style="color:var(--accent);font-weight:600">{{ g.expense_count }}</span>
+                    {% else %}0{% endif %}
+                </td>
+                <td>{{ g.created_at[:10] }}</td>
+                <td>
+                    <a href="{{ url_for('group.dashboard', group_id=g.id) }}"
+                       class="btn-sm btn-primary-outline">View</a>
+                    <a href="{{ url_for('group.activity_feed', group_id=g.id) }}"
+                       class="btn-sm btn-secondary-outline">Feed</a>
+                    <form method="POST" action="{{ url_for('group.delete_group', group_id=g.id) }}"
+                          style="display:inline">
+                        <button type="submit"
+                                style="background:rgba(239,68,68,.15);color:#ef4444;border:none;
+                                       cursor:pointer;border-radius:6px;padding:.3rem .6rem"
+                                onclick="return confirm('Delete group #{{ g.id }} permanently?')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="text-align:center;padding:2rem;opacity:.5">No groups found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+</div><!-- /page-body -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const agSearch   = document.getElementById('agSearch');
+const agTbody    = document.getElementById('agTbody');
+const agVisible  = document.getElementById('agVisible');
+const agIdInput  = document.getElementById('agIdInput');
+const agIdBtn    = document.getElementById('agIdBtn');
+const agIdMsg    = document.getElementById('agIdMsg');
+const totalRows  = agTbody ? agTbody.querySelectorAll('tr[data-id]').length : 0;
+
+// ── Live name/creator filter ─────────────────────────────────────────────────
+agSearch.addEventListener('input', () => {
+    const q = agSearch.value.trim().toLowerCase();
+    let count = 0;
+
+    agTbody.querySelectorAll('tr[data-id]').forEach(row => {
+        const nameCell    = row.querySelector('.ag-cell-name');
+        const creatorCell = row.querySelector('.ag-cell-creator');
+        const name    = row.dataset.name;
+        const creator = row.dataset.creator;
+
+        const matches = !q || name.includes(q) || creator.includes(q);
+        row.classList.toggle('ag-hidden', !matches);
+
+        if (matches) {
+            count++;
+            // Highlight matches
+            if (q) {
+                nameCell.innerHTML    = highlight(nameCell.textContent, q);
+                creatorCell.innerHTML = highlight(creatorCell.textContent, q);
+            } else {
+                nameCell.innerHTML    = nameCell.textContent;
+                creatorCell.innerHTML = creatorCell.textContent;
+            }
+        }
+    });
+
+    agVisible.textContent = count;
+});
+
+// ── Direct jump by Group ID ──────────────────────────────────────────────────
+agIdInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') jumpToId();
+});
+
+agIdInput.addEventListener('input', () => {
+    agIdBtn.disabled = !agIdInput.value.trim();
+    agIdMsg.textContent = '';
+});
+
+function jumpToId() {
+    const id = agIdInput.value.trim();
+    if (!id) return;
+
+    // Clear previous search filter so all rows visible
+    agSearch.value = '';
+    agTbody.querySelectorAll('tr[data-id]').forEach(r => {
+        r.classList.remove('ag-hidden', 'ag-pulse');
+        r.querySelector('.ag-cell-name').innerHTML = r.querySelector('.ag-cell-name').textContent;
+        r.querySelector('.ag-cell-creator').innerHTML = r.querySelector('.ag-cell-creator').textContent;
+    });
+    agVisible.textContent = totalRows;
+
+    const target = agTbody.querySelector(`tr[data-id="${id}"]`);
+    if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('ag-pulse');
+        target.addEventListener('animationend', () => target.classList.remove('ag-pulse'), { once: true });
+        agIdMsg.style.color = '#22c55e';
+        agIdMsg.innerHTML   = `<i class="fas fa-check-circle"></i> Found Group #${id}: <strong>${target.querySelector('.ag-cell-name').textContent}</strong>`;
+    } else {
+        agIdMsg.style.color = '#ef4444';
+        agIdMsg.innerHTML   = `<i class="fas fa-times-circle"></i> No group found with ID <strong>#${id}</strong>.`;
+    }
+}
+
+// ── Highlight helper ─────────────────────────────────────────────────────────
+function highlight(text, q) {
+    if (!q) return text;
+    const safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text.replace(new RegExp(`(${safe})`, 'gi'), '<mark>$1</mark>');
+}
+</script>
+{% endblock %}
